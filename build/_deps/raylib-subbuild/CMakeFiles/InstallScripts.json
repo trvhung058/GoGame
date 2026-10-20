@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"G:/C++/GoGame/build/_deps/raylib-subbuild/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

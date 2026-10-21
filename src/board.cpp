@@ -13,8 +13,10 @@ Board::~Board() {
     UnloadAssets(); 
 }
 
-void Board::LoadAssets(const char *path) {
-    texBoard = LoadTexture(path);
+void Board::LoadAssets(const char *boardPath, const char *blackPath, const char *whitePath) {
+    texBoard = LoadTexture(boardPath);
+    texBlackStone = LoadTexture(blackPath);
+    texWhiteStone = LoadTexture(whitePath);
     isLoaded = true;                                                                                                                                                                                            
 }
 
@@ -39,6 +41,18 @@ void Board::Draw() {
             DrawLine(x + margin, y +  margin + i * cell_size, x + texBoard.height - margin, y + margin + i * cell_size, BLACK);
         }
     }
+}
+
+void Board::DrawGhostStone(int row, int col, int currentPlayer){
+    if (board[row][col] != 0) return;
+
+    int pixelX = x + margin + col * cell_size;
+    int pixelY = y + margin + row * cell_size;
+
+    Color ghostColor = (currentPlayer == 1) ? BLACK : WHITE;
+
+    DrawCircle(pixelX, pixelY, 10.0f, Fade(ghostColor, 0.5f));
+    
 }
 
 std::pair<int, int> Board::GetCellIndex(Vector2 MousePos) {

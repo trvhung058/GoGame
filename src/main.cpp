@@ -11,7 +11,7 @@ int main() {
     SetTargetFPS(60); 
 
     Board board;
-    board.LoadAssets("assets/board/wood_768.jpg");
+    board.LoadAssets("assets/board/wood_768.jpg", "assets/b.png", "assets/w.png");
 
 
     while (!WindowShouldClose()) {
@@ -27,6 +27,12 @@ int main() {
         
 
         board.Draw();
+
+        // std::pair<int,int> cell = board.GetCellIndex(GetMousePosition());
+
+        // if (cell != std::pair<int, int>{-1, -1}){
+        //     board.DrawGhostStone(cell.second, cell.first, 1);
+        // }
 
 
         EndDrawing();

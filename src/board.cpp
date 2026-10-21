@@ -23,6 +23,8 @@ void Board::LoadAssets(const char *boardPath, const char *blackPath, const char 
 void Board::UnloadAssets() {
     if (isLoaded) {
         UnloadTexture(texBoard);
+        UnloadTexture(texBlackStone);
+        UnloadTexture(texWhiteStone);
         isLoaded = false;
     }
 }
@@ -34,25 +36,48 @@ void Board::Draw() {
         DrawTexture(texBoard, x, y, WHITE);
         cell_size = texBoard.height / 20.0f;
         margin = cell_size;
+
         for (int i = 0; i < 19; i++) {
             DrawLine(x + margin + i * cell_size, y + margin, x + margin + i * cell_size, y + texBoard.height - margin, BLACK);
-        }
-        for (int i = 0; i < 19; i++) {
             DrawLine(x + margin, y +  margin + i * cell_size, x + texBoard.height - margin, y + margin + i * cell_size, BLACK);
+        }
+        
+        for (int i = 0; i < 19; i++) {
+            for (int j = 0; j < 19; j++) {
+                if (board[i][j] == 0) continue;
+
+                float pixelX = x + margin + i * cell_size - texBlackStone.height / 2.0;
+                float pixelY = y + margin + j * cell_size - texBlackStone.height / 2.0;
+
+                if (board[i][j] == 1){
+                    DrawTexture(texBlackStone, pixelX, pixelY, WHITE);
+                }
+                else if (board[i][j] == 2){
+                    DrawTexture(texWhiteStone, pixelX, pixelY, WHITE);
+                }
+            }
         }
     }
 }
 
-void Board::DrawGhostStone(int row, int col, int currentPlayer){
-    if (board[row][col] != 0) return;
+void Board::DrawGhostStone(int col, int row, int currentPlayer) {
+    if (board[col][row] != 0) return;
 
     int pixelX = x + margin + col * cell_size;
     int pixelY = y + margin + row * cell_size;
 
     Color ghostColor = (currentPlayer == 1) ? BLACK : WHITE;
 
-    DrawCircle(pixelX, pixelY, 10.0f, Fade(ghostColor, 0.5f));
+    DrawCircle(pixelX, pixelY, 15.0f, Fade(ghostColor, 0.5f));
     
+}
+
+int Board::GetStone(int col, int row) {
+    return board[col][row];
+}
+
+void Board::SetStone(int col, int row, int player) {
+    board[col][row] = player;
 }
 
 std::pair<int, int> Board::GetCellIndex(Vector2 MousePos) {

@@ -1,5 +1,5 @@
 #include "raylib.h"
-#include "board.h"
+#include "game.h"
 #include <iostream>
 
 const int W = 1000;
@@ -10,29 +10,26 @@ int main() {
 
     SetTargetFPS(60); 
 
-    Board board;
-    board.LoadAssets("assets/board/wood_768.jpg", "assets/b.png", "assets/w.png");
+    Game game;
 
 
     while (!WindowShouldClose()) {
 
-        // if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
-        //     std::pair<int,int> res = board.GetCellIndex(GetMousePosition());
-        //     std::cout << res.first << " " << res.second << '\n';
-        // }
+        std::pair<int,int> res = game.GetCellIndex(GetMousePosition());
+        int col = res.first, row = res.second;
+
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
+            game.PlaceStone(col, row);
+        }
 
         BeginDrawing();
         
         ClearBackground(RAYWHITE); 
         
+        game.Draw();
+        game.GhostStone(col, row);
 
-        board.Draw();
-
-        // std::pair<int,int> cell = board.GetCellIndex(GetMousePosition());
-
-        // if (cell != std::pair<int, int>{-1, -1}){
-        //     board.DrawGhostStone(cell.second, cell.first, 1);
-        // }
+        
 
 
         EndDrawing();

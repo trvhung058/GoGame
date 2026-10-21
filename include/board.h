@@ -22,8 +22,10 @@ class Board {
         void LoadAssets(const char *boardPath, const char *blackPath, const char *whitePath);
         void UnloadAssets();
         void Draw(); 
-        void DrawGhostStone(int row, int col, int currentPlayer);
-        void DrawStone(int row, int col, int currentPlayer);
+        void DrawGhostStone(int col, int row, int currentPlayer);
+        void DrawStone(int col, int row, int currentPlayer);
         
+        int GetStone(int col, int row);
+        void SetStone(int col, int row, int player);
         std::pair<int, int> GetCellIndex(Vector2 MousePos);
 };

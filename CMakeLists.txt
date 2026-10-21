@@ -16,11 +16,14 @@ FetchContent_MakeAvailable(raylib)
 
 set(SOURCES
     src/main.cpp
+    src/board.cpp
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE raylib)
+
+target_include_directories(${PROJECT_NAME} PRIVATE include/)
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory

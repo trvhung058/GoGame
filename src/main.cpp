@@ -1,18 +1,33 @@
 #include "raylib.h"
+#include "board.h"
+#include <iostream>
+
+const int W = 1000;
+const int H = 1000;
 
 int main() {
-    const int screenWidth = 800;
-    const int screenHeight = 600;
-    InitWindow(screenWidth, screenHeight, "Go Game - C++ & Raylib");
+    InitWindow(W, H, "Go Game");
 
     SetTargetFPS(60); 
 
+    Board board;
+    board.LoadAssets("assets/board/wood_768.jpg");
+
+
     while (!WindowShouldClose()) {
+
+        // if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
+        //     std::pair<int,int> res = board.GetCellIndex(GetMousePosition());
+        //     std::cout << res.first << " " << res.second << '\n';
+        // }
+
         BeginDrawing();
         
         ClearBackground(RAYWHITE); 
         
-        DrawText("Ban co Raylib da duoc khoi tao!", 190, 200, 20, LIGHTGRAY);
+
+        board.Draw();
+
 
         EndDrawing();
     }

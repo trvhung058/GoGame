@@ -4,10 +4,28 @@ Game::Game(){
     board.LoadAssets("assets/board/wood1.jpg", "assets/b_40.png", "assets/w_40.png");
 
     currentPlayer = 1;
+    GameScreen = MENU;
 }
 
 void Game::Draw(){
     board.Draw();
+
+    if (!moves.empty()) {
+        int col = moves.back().col;
+        int row = moves.back().row;
+        int player = moves.back().player;
+
+        auto pixelPosition = board.GetPixelPosition(col, row);
+        int pixelX = pixelPosition.first;
+        int pixelY = pixelPosition.second;
+
+        if (player == 1) {
+            DrawRectangle(pixelX - 7.0f, pixelY - 7.0f, 14.0f, 14.0f, WHITE);
+        }
+        else if (player == 2) {
+            DrawRectangle(pixelX - 7.0f, pixelY - 7.0f, 14.0f, 14.0f, BLACK);
+        }
+    }
 }
 
 void Game::GhostStone(int col, int row) {
@@ -22,6 +40,8 @@ void Game::PlaceStone(int col, int row) {
     if (board.GetStone(col, row) != 0) return;
 
     board.SetStone(col, row, currentPlayer);
+
+    moves.push_back({col, row, currentPlayer});
 
     currentPlayer = 3 - currentPlayer;
 }

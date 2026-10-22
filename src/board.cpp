@@ -57,14 +57,17 @@ void Board::Draw() {
                 }
             }
         }
+
+        
     }
 }
 
 void Board::DrawGhostStone(int col, int row, int currentPlayer) {
     if (board[col][row] != 0) return;
 
-    int pixelX = x + margin + col * cell_size;
-    int pixelY = y + margin + row * cell_size;
+    auto pixelPosition = GetPixelPosition(col, row);
+    int pixelX = pixelPosition.first;
+    int pixelY = pixelPosition.second;
 
     Color ghostColor = (currentPlayer == 1) ? BLACK : WHITE;
 
@@ -80,6 +83,19 @@ void Board::SetStone(int col, int row, int player) {
     board[col][row] = player;
 }
 
+void Board::DrawLastPlayed(int col, int row, int player) {
+    auto pixelPosition = GetPixelPosition(col, row);
+    int pixelX = pixelPosition.first;
+    int pixelY = pixelPosition.second;
+
+    if (player == 1) {
+        DrawRectangle(pixelX - texBlackStone.height / 2.0, pixelY - texBlackStone.height / 2.0, texBlackStone.height, texBlackStone.height, WHITE);
+    }
+    else if (player == 2) {
+        DrawRectangle(pixelX - texBlackStone.height / 2.0, pixelY - texBlackStone.height / 2.0, texBlackStone.height, texBlackStone.height, BLACK);
+    }
+}
+
 std::pair<int, int> Board::GetCellIndex(Vector2 MousePos) {
     float mouseX = MousePos.x;
     float mouseY = MousePos.y;
@@ -91,4 +107,11 @@ std::pair<int, int> Board::GetCellIndex(Vector2 MousePos) {
     }
 
     return {col, row}; 
+}
+
+std::pair<int, int> Board::GetPixelPosition(int col, int row){
+    int pixelX = x + margin + col * cell_size;
+    int pixelY = y + margin + row * cell_size;
+
+    return {pixelX, pixelY};
 }

@@ -24,8 +24,10 @@ class Board {
         void Draw(); 
         void DrawGhostStone(int col, int row, int currentPlayer);
         void DrawStone(int col, int row, int currentPlayer);
+        void DrawLastPlayed(int col, int row, int player);
         
         int GetStone(int col, int row);
         void SetStone(int col, int row, int player);
         std::pair<int, int> GetCellIndex(Vector2 MousePos);
+        std::pair<int, int> GetPixelPosition(int col, int row);
 };

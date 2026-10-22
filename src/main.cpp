@@ -15,19 +15,20 @@ int main() {
 
     while (!WindowShouldClose()) {
 
-        std::pair<int,int> res = game.GetCellIndex(GetMousePosition());
-        int col = res.first, row = res.second;
+        // std::pair<int,int> res = game.GetCellIndex(GetMousePosition());
+        // int col = res.first, row = res.second;
 
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
-            game.PlaceStone(col, row);
-        }
+        // if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
+        //     game.PlaceStone(col, row);
+        // }
 
         BeginDrawing();
         
         ClearBackground(RAYWHITE); 
         
-        game.Draw();
-        game.GhostStone(col, row);
+        // game.Draw();
+        // game.GhostStone(col, row);
+        game.GameScreen();
 
         
 

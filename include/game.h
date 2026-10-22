@@ -1,5 +1,6 @@
 #pragma once
 #include "board.h" 
+#include "UI.h"
 #include <vector>
 #include <array>
 #include <iostream>
@@ -15,12 +16,14 @@ class Game {
         Board board;
         int currentPlayer;
         std::vector<move> moves;
-        enum GameScreen {
+        UI background;
+        UI logo;
+        enum Scene {
             MENU,
             PVP,
             PVE,
             EXIT
-        } GameScreen;
+        } CurrentScreen;
 
     public:
         Game();
@@ -29,5 +32,5 @@ class Game {
         void Draw();
         void GhostStone(int col, int row);
         void PlaceStone(int col, int row);
-
+        void GameScreen();
 };

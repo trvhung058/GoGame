@@ -2,9 +2,13 @@
 
 Game::Game(){
     board.LoadAssets("assets/board/wood1.jpg", "assets/b_40.png", "assets/w_40.png");
+    background.LoadAssets("assets/go-jeu_1000_blur.jpg");
+    background.SetPosition(0, 0);
+    logo.LoadAssets("assets/UI/icon258.png");
+    logo.SetPosition(371, 200);
 
     currentPlayer = 1;
-    GameScreen = MENU;
+    CurrentScreen = MENU;
 }
 
 void Game::Draw(){
@@ -48,4 +52,14 @@ void Game::PlaceStone(int col, int row) {
 
 std::pair<int, int> Game::GetCellIndex(Vector2 MousePos){
     return board.GetCellIndex(MousePos);
+}
+
+void Game::GameScreen() {
+    switch (CurrentScreen){
+        case MENU: 
+        {
+            background.Draw(true);
+            logo.Draw(false);
+        } break;
+    }
 }

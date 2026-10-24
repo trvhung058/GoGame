@@ -1,6 +1,20 @@
 #include "game_engine.h"
 
 #include <vector>
+#include <stdexcept>
+
+void createInitialState(SessionSnapshot& state, int boardSize) {
+    if (boardSize <= 0) {
+        throw std::invalid_argument("Board size must be positive.");
+    }
+    state.board = std::vector<std::vector<Stone>>(boardSize, std::vector<Stone>(boardSize, Stone::Empty));
+    state.previousBoard = std::vector<std::vector<Stone>>(boardSize, std::vector<Stone>(boardSize, Stone::Empty));
+    state.sideToMove = Stone::Black;
+    state.capturedByBlack = 0;
+    state.capturedByWhite = 0;
+    state.consecutivePasses = 0;
+    state.phase = GamePhase::Playing;
+}
 
 bool isOnBoard(int col, int row, int size) {
     return col >= 0 && col < size && row >= 0 && row < size;
@@ -77,7 +91,31 @@ std::vector<Point> findCapturedGroup(const SessionSnapshot& state, Point adjacen
     }
 }
 
+static bool boardsEqual(const std::vector<std::vector<Stone>>& a, const std::vector<std::vector<Stone>>& b) {
+    if (a.size() != b.size()) {
+        return false;
+    }
+
+    for (size_t row = 0; row < a.size(); ++row) {
+        if (a[row].size() != b[row].size()) {
+            return false;
+        }
+
+        for (size_t col = 0; col < a[row].size(); ++col) {
+            if (a[row][col] != b[row][col]) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 bool tryPlayStone(SessionSnapshot& state, Point position) {
+    if (state.phase != GamePhase::Playing) {
+        return false;
+    }
+
     if (!isOnBoard(position.col, position.row, state.board.size()) ||
         state.board[position.col][position.row] != Stone::Empty) {
         return false;
@@ -128,7 +166,32 @@ bool tryPlayStone(SessionSnapshot& state, Point position) {
         return false;
     }
 
+    if (!state.previousBoard.empty() && boardsEqual(temp.board, state.previousBoard)) {
+        return false;
+    }
+
+    temp.previousBoard = state.board;
     temp.sideToMove = (state.sideToMove == Stone::Black) ? Stone::White : Stone::Black;
+    temp.consecutivePasses = 0;
+    temp.phase = GamePhase::Playing;
+    state = temp;
+    return true;
+}
+
+bool tryPass(SessionSnapshot& state) {
+    if (state.phase != GamePhase::Playing) {
+        return false;
+    }
+
+    SessionSnapshot temp = state;
+    temp.consecutivePasses++;
+    temp.sideToMove = (state.sideToMove == Stone::Black) ? Stone::White : Stone::Black;
+    temp.previousBoard = state.board;
+
+    if (temp.consecutivePasses >= 2) {
+        temp.phase = GamePhase::Scoring;
+    }
+
     state = temp;
     return true;
 }

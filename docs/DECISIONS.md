@@ -1,0 +1,37 @@
+# Project Decisions
+
+This document records the architectural and gameplay decisions agreed upon by the team for the C++ Go Game project.
+
+## 1. Technology Stack
+* **Language & Standard:** C++17.
+* **Build System:** CMake.
+* **GUI Library:** Raylib (chosen for the frontend rendering and event loop).
+* **Data Serialization:** `nlohmann/json` (header-only, for Save/Load functionality).
+
+## 2. Board and Coordinates
+* **Supported Board Sizes:** The supported board size is 19x19 initially. It can be extended to other sizes (e.g., 9x9) in the future.
+* **Coordinate Convention:** Zero-based `(row, col)` indexing internally in the Game Engine (from `0` to `size - 1`). The Raylib UI will translate these abstract coordinates into screen pixels.
+
+## 3. Game Rules and Mechanics
+* **Starting Player:** Black always plays first.
+* **Scoring System:** Chinese scoring (Area scoring). This was chosen because it does not require tracking captured stones historically and allows for easy resolution of dead stones.
+* **Komi:** 6.5 points for White to compensate for Black's first-move advantage.
+* **Ko Rule:** Basic Ko rule is enforced (a player cannot immediately recreate the previous board state).
+* **Suicide Policy:** Suicide moves (placing a stone that immediately has 0 liberties without capturing enemy stones) are strictly prohibited.
+
+## 4. End-Game and Phase Management
+* **Triggering the End-Game:** Two consecutive passes by the players will transition the game from the `"playing"` phase to the `"scoring"` phase.
+* **Dead-Stone Selection:** Because Chinese rules are used, players can simply play out disputes to capture dead stones before passing. If interactive selection is added, players will click stones to mark them as dead before the final score calculation.
+* **Undo Behavior (PvE):** In Player vs. AI mode, triggering "Undo" will reverse one human/AI *pair* of moves, returning the board directly to the human's turn. 
+
+## 5. Persistence (Save/Load)
+* **History Retention:** Loaded games will preserve the full Undo and Redo stacks.
+* **Savable Phases:** The game can be saved during the `"playing"` and `"finished"` phases. 
+* **Errors:** Failed save/load attempts (e.g., corrupted JSON, missing file) will display an error in the GUI and keep the current session intact without crashing.
+
+## 6. AI Parameters
+* **Response Budgets (Approximate):**
+  * **Easy (Random):** 100 ms
+  * **Medium (Minimax):** 300 ms
+  * **Hard (Alpha-Beta):** 1,000 ms
+* **Cancellation:** A new action (like hitting Undo or resetting the board) while the AI is calculating will discard the stale AI output safely.

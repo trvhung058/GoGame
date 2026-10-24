@@ -14,6 +14,9 @@ void createInitialState(SessionSnapshot& state, int boardSize) {
     state.capturedByWhite = 0;
     state.consecutivePasses = 0;
     state.phase = GamePhase::Playing;
+    state.blackAcceptedScore = false;
+    state.whiteAcceptedScore = false;
+    state.territoryProposal = std::vector<std::vector<TerritoryOwner>>(boardSize, std::vector<TerritoryOwner>(boardSize, TerritoryOwner::Unresolved));
 }
 
 bool isOnBoard(int col, int row, int size) {
@@ -190,8 +193,152 @@ bool tryPass(SessionSnapshot& state) {
 
     if (temp.consecutivePasses >= 2) {
         temp.phase = GamePhase::Scoring;
+        temp.blackAcceptedScore = false;
+        temp.whiteAcceptedScore = false;
+        temp.territoryProposal = generateTerritoryProposal(temp);
     }
 
     state = temp;
+    return true;
+}
+
+Score calculateAreaScore(const SessionSnapshot& state, double komi) {
+    const TerritoryMap& territoryOwner = state.territoryProposal;
+    if (state.phase == GamePhase::Playing) {
+        throw std::invalid_argument("Cannot calculate score while the game is in the Playing phase.");
+    }
+    if (territoryOwner.size() != state.board.size()) {
+        throw std::invalid_argument("Territory map dimensions must match the board.");
+    }
+
+    for (size_t col = 0; col < state.board.size(); ++col) {
+        if (territoryOwner[col].size() != state.board[col].size()) {
+            throw std::invalid_argument("Territory map dimensions must match the board.");
+        }
+    }
+
+    Score score{ 0.0, komi };
+
+    for (size_t col = 0; col < state.board.size(); ++col) {
+        for (size_t row = 0; row < state.board[col].size(); ++row) {
+            Stone stone = state.board[col][row];
+            if (stone == Stone::Black) {
+                score.black += 1.0;
+            } else if (stone == Stone::White) {
+                score.white += 1.0;
+            } else {
+                TerritoryOwner owner = territoryOwner[col][row];
+                if (owner == TerritoryOwner::Black) {
+                    score.black += 1.0;
+                } else if (owner == TerritoryOwner::White) {
+                    score.white += 1.0;
+                } else if (owner == TerritoryOwner::Unresolved) {
+                    throw std::invalid_argument("Territory map contains unresolved points.");
+                }
+            }
+        }
+    }
+
+    return score;
+}
+
+TerritoryMap generateTerritoryProposal(const SessionSnapshot& state) {
+    TerritoryMap proposal;
+    proposal.reserve(state.board.size());
+    for (const auto& column : state.board) {
+        proposal.emplace_back(column.size(), TerritoryOwner::Unresolved);
+    }
+
+    std::vector<std::vector<bool>> visited;
+    visited.reserve(state.board.size());
+    for (const auto& column : state.board) {
+        visited.emplace_back(column.size(), false);
+    }
+
+    const int dx[] = { -1, 1, 0, 0 };
+    const int dy[] = { 0, 0, -1, 1 };
+
+    for (size_t col = 0; col < state.board.size(); ++col) {
+        for (size_t row = 0; row < state.board[col].size(); ++row) {
+            if (state.board[col][row] != Stone::Empty || visited[col][row]) {
+                continue;
+            }
+
+            bool touchesBlack = false;
+            bool touchesWhite = false;
+            std::vector<Point> region;
+            std::vector<Point> stack = { { static_cast<int>(col), static_cast<int>(row) } };
+            visited[col][row] = true;
+
+            while (!stack.empty()) {
+                Point current = stack.back();
+                stack.pop_back();
+                region.push_back(current);
+
+                for (int i = 0; i < 4; ++i) {
+                    int nextCol = current.col + dx[i];
+                    int nextRow = current.row + dy[i];
+                    if (nextCol < 0 || static_cast<size_t>(nextCol) >= state.board.size() ||
+                        nextRow < 0 || static_cast<size_t>(nextRow) >= state.board[nextCol].size()) {
+                        continue;
+                    }
+
+                    Stone neighbor = state.board[nextCol][nextRow];
+                    if (neighbor == Stone::Black) {
+                        touchesBlack = true;
+                    } else if (neighbor == Stone::White) {
+                        touchesWhite = true;
+                    } else if (!visited[nextCol][nextRow]) {
+                        visited[nextCol][nextRow] = true;
+                        stack.push_back({ nextCol, nextRow });
+                    }
+                }
+            }
+
+            TerritoryOwner owner = TerritoryOwner::Unresolved;
+            if (touchesBlack && touchesWhite) {
+                owner = TerritoryOwner::Neutral;
+            } else if (touchesBlack) {
+                owner = TerritoryOwner::Black;
+            } else if (touchesWhite) {
+                owner = TerritoryOwner::White;
+            } else {
+                owner = TerritoryOwner::Neutral;
+            }
+
+            for (const Point& point : region) {
+                proposal[point.col][point.row] = owner;
+            }
+        }
+    }
+
+    return proposal;
+}
+
+bool reviewScore(SessionSnapshot& state, Stone player, bool accepts) {
+    if (state.phase != GamePhase::Scoring) {
+        return false;
+    }
+    if ((player == Stone::Black || player == Stone::White) && !accepts) {
+        state.phase = GamePhase::Playing;
+        state.consecutivePasses = 0;
+        state.blackAcceptedScore = false;
+        state.whiteAcceptedScore = false;
+        state.territoryProposal = std::vector<std::vector<TerritoryOwner>>(state.board.size(), std::vector<TerritoryOwner>(state.board.size(), TerritoryOwner::Unresolved));
+        return true;
+    }
+
+    if (player == Stone::Black) {
+        state.blackAcceptedScore = accepts;
+    } else if (player == Stone::White) {
+        state.whiteAcceptedScore = accepts;
+    } else {
+        return false;
+    }
+
+    if (state.blackAcceptedScore && state.whiteAcceptedScore) {
+        state.phase = GamePhase::Finished;
+    }
+
     return true;
 }

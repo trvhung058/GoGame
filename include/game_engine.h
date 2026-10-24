@@ -11,3 +11,6 @@ std::vector<Point> findCapturedGroup(const SessionSnapshot& state, Point adjacen
 bool tryPlayStone(SessionSnapshot& state, Point position);
 void createInitialState(SessionSnapshot& state, int boardSize);
 bool tryPass(SessionSnapshot& state);
+Score calculateAreaScore(const SessionSnapshot& state, double komi);
+TerritoryMap generateTerritoryProposal(const SessionSnapshot& state);
+bool reviewScore(SessionSnapshot& state, Stone player, bool accepts);

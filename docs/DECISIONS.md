@@ -10,18 +10,18 @@ This document records the architectural and gameplay decisions agreed upon by th
 
 ## 2. Board and Coordinates
 * **Supported Board Sizes:** The supported board size is 19x19 initially. It can be extended to other sizes (e.g., 9x9) in the future.
-* **Coordinate Convention:** Zero-based `(row, col)` indexing internally in the Game Engine (from `0` to `size - 1`). The Raylib UI will translate these abstract coordinates into screen pixels.
+* **Coordinate Convention:** Zero-based `(col, row)` indexing internally in the Game Engine (from `0` to `size - 1`), matching the current `Point` fields and `board[col][row]` representation. The Raylib UI will translate these abstract coordinates into screen pixels.
 
 ## 3. Game Rules and Mechanics
 * **Starting Player:** Black always plays first.
-* **Scoring System:** Chinese scoring (Area scoring). This was chosen because it does not require tracking captured stones historically and allows for easy resolution of dead stones.
+* **Scoring System:** Chinese scoring (area scoring): count each living stone on the board and each empty intersection that is territory for that color. Captured stones are not added to the score. An empty region is not territory merely because it touches stones of only one color; it must be enclosed by living stones of that color. Board edges can form part of an enclosure but do not claim empty points by themselves. Regions that are open or bordered by both colors are neutral.
 * **Komi:** 6.5 points for White to compensate for Black's first-move advantage.
 * **Ko Rule:** Basic Ko rule is enforced (a player cannot immediately recreate the previous board state).
 * **Suicide Policy:** Suicide moves (placing a stone that immediately has 0 liberties without capturing enemy stones) are strictly prohibited.
 
 ## 4. End-Game and Phase Management
 * **Triggering the End-Game:** Two consecutive passes by the players will transition the game from the `"playing"` phase to the `"scoring"` phase.
-* **Dead-Stone Selection:** Because Chinese rules are used, players can simply play out disputes to capture dead stones before passing. If interactive selection is added, players will click stones to mark them as dead before the final score calculation.
+* **Dead-Stone Selection:** The first version will not automatically determine life and death. Players should play out disputes before passing. If interactive dead-stone marking is added, marked stones must be removed for scoring and restored if scoring is canceled. The scoring implementation must not treat every empty region touching only one color as territory; unowned open regions remain neutral.
 * **Undo Behavior (PvE):** In Player vs. AI mode, triggering "Undo" will reverse one human/AI *pair* of moves, returning the board directly to the human's turn. 
 
 ## 5. Persistence (Save/Load)

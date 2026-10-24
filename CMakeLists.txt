@@ -19,6 +19,7 @@ set(SOURCES
     src/board.cpp
     src/game.cpp
     src/UI.cpp
+    src/game_engine.cpp
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES})

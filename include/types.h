@@ -5,7 +5,7 @@
 // Pure data structures with NO Raylib dependencies
 enum class Stone { Empty, Black, White };
 
-struct Point { int row; int col; };
+struct Point { int col; int row; };
 
 struct Move {
     bool isPass;

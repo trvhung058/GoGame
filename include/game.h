@@ -1,6 +1,7 @@
 #pragma once
 #include "board.h" 
 #include "UI.h"
+#include "game_engine.h"
 #include <vector>
 #include <array>
 #include <iostream>
@@ -14,6 +15,7 @@ struct move {
 class Game {
     private:
         Board board;
+        GameSession session;
         int currentPlayer;
         std::vector<move> moves;
         UI background;

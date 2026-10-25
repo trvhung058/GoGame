@@ -34,6 +34,12 @@ struct SessionSnapshot {
     bool whiteAcceptedScore;
 };
 
+struct GameSession {
+    SessionSnapshot currentState{};
+    std::vector<SessionSnapshot> undoHistory;
+    std::vector<SessionSnapshot> redoHistory;
+};
+
 struct Score {
     double black;
     double white;

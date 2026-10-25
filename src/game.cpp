@@ -1,6 +1,8 @@
 #include "game.h"
 
 Game::Game(){
+    createInitialState(session.currentState, 19);
+
     board.LoadAssets("assets/board/wood1.jpg", "assets/b_40.png", "assets/w_40.png");
     background.LoadAssets("assets/go-jeu_1000_blur.jpg");
     background.SetPosition(0, 0);

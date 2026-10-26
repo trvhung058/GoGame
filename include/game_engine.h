@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-
+#include <cstddef>
 #include "types.h"
 
 bool isOnBoard(int col, int row, int size);
@@ -14,3 +14,6 @@ bool tryPass(SessionSnapshot& state);
 Score calculateAreaScore(const SessionSnapshot& state, double komi);
 TerritoryMap generateTerritoryProposal(const SessionSnapshot& state);
 bool reviewScore(SessionSnapshot& state, Stone player, bool accepts);
+bool tryPlayMove(GameSession& session, const Move& move);
+bool undoMoves(GameSession& session, std::size_t count);
+bool redoMoves(GameSession& session, std::size_t count);

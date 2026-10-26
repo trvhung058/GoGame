@@ -8,8 +8,8 @@ Game::Game(){
     background.SetPosition(0, 0);
     logo.LoadAssets("assets/UI/icon258.png");
     logo.SetPosition(371, 200);
-
-    currentScreen = PVP;
+    playButton.LoadAssets("assets/UI/PNG/Yellow/Default/button_rectangle_depth_flat.png");
+    currentScreen = MENU;
 }
 
 void Game::Draw(){
@@ -19,6 +19,7 @@ void Game::Draw(){
     {
         background.Draw(true);
         logo.Draw(false);
+        playButton.Draw();
     }break;
     case PVP:
     {
@@ -42,6 +43,9 @@ void Game::Update(){
     switch (currentScreen)
     {
     case MENU:
+        if (playButton.IsClicked(GetMousePosition())) {
+            currentScreen = PVP;
+        }
         break;
     
     default:

@@ -13,6 +13,7 @@ class Game {
 
         UI background;
         UI logo;
+        Button playButton;
 
         enum Scene {
             MENU,

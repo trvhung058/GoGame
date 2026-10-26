@@ -23,6 +23,6 @@ void UI::SetPosition(int pixelX, int pixelY) {
 
 void UI::Draw(bool blur = false) {
     DrawTexture(tex, x, y, WHITE);
-    if (blur) DrawRectangle(x, x, tex.width, tex.height, Fade(BLACK, 0.4f));
+    if (blur) DrawRectangle(x, y, tex.width, tex.height, Fade(BLACK, 0.4f));
 }
 

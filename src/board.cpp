@@ -12,7 +12,7 @@ Board::~Board() {
     UnloadAssets(); 
 }
 
-void Board::LoadAssets(const char *boardPath, const char *blackPath, const char *whitePath) {
+void Board::LoadAssetsDefault(const char *boardPath, const char *blackPath, const char *whitePath) {
     texBoard = LoadTexture(boardPath);
     texBlackStone = LoadTexture(blackPath);
     texWhiteStone = LoadTexture(whitePath);
@@ -28,21 +28,21 @@ void Board::UnloadAssets() {
     }
 }
 
-void Board::Draw() {
+void Board::Draw(int sz) {
     if (!isLoaded) return;
 
     DrawTexture(texBoard, x, y, WHITE);
-    cell_size = texBoard.height / 20.0f;
+    cell_size = texBoard.height / static_cast<float>(sz + 1);
     margin = cell_size;
 
-    for (int i = 0; i < 19; i++) {
+    for (int i = 0; i < sz; i++) {
         DrawLine(x + margin + i * cell_size, y + margin, x + margin + i * cell_size, y + texBoard.height - margin, BLACK);
         DrawLine(x + margin, y + margin + i * cell_size, x + texBoard.height - margin, y + margin + i * cell_size, BLACK);
     }
 }
 
 void Board::Draw(const std::vector<std::vector<Stone>>& grid) {
-    Draw(); 
+    Draw(grid.size()); 
 
     if (!isLoaded) return;
 

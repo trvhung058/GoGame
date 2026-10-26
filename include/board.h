@@ -22,10 +22,10 @@ class Board {
         Board(const Board&) = delete;
         Board& operator=(const Board&) = delete;
 
-        void LoadAssets(const char *boardPath, const char *blackPath, const char *whitePath);
+        void LoadAssetsDefault(const char *boardPath, const char *blackPath, const char *whitePath);
         void UnloadAssets();
 
-        void Draw(); 
+        void Draw(int sz); 
         void Draw(const std::vector<std::vector<Stone>>& grid);
         void Draw(const SessionSnapshot& state);
 

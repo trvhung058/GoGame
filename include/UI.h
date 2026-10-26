@@ -22,12 +22,18 @@ class UI {
 class Button {
     private:
         Rectangle bounds;
-        std::string text;
+        const char *text;
+        Font font;
         Texture2D texture;
+        Texture2D texture_hovered;
 
     public:
-        void LoadAssets(const char *path);
+        void LoadAssets(const char *path, const char *path_hovered);
+        void LoadFonts(const char *path);
         void UnloadAssets();
+        void SetPosition(float x, float y);
+        void SetText(const char *s);
+        std::pair<float, float> GetSize();
         bool IsClicked(Vector2 mousePos);
         bool IsHovered(Vector2 mousePos);
         void Draw();

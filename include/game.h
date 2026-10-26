@@ -13,10 +13,14 @@ class Game {
 
         UI background;
         UI logo;
-        Button playButton;
+        Button ContinueButton;
+        Button NewGameButton;
+        Button SkinsButton;
+        Button ExitButton;
 
         enum Scene {
             MENU,
+            SKIN,
             PVP,
             PVE,
             EXIT

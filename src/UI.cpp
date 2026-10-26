@@ -26,13 +26,32 @@ void UI::Draw(bool blur = false) {
     if (blur) DrawRectangle(x, y, tex.width, tex.height, Fade(BLACK, 0.4f));
 }
 
-void Button::LoadAssets(const char *path) {
+void Button::LoadAssets(const char *path, const char *path_hovered) {
     texture = LoadTexture(path);
-    bounds = {600.0f, 600.0f, (float)texture.width, (float)texture.height};
+    texture_hovered = LoadTexture(path_hovered);
 }
 
-void Button::UnloadAssets(){
+void Button::LoadFonts(const char *path) {
+    font = LoadFontEx(path, 64, 0, 0);
+    SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
+}
+
+void Button::UnloadAssets() {
     UnloadTexture(texture);
+    UnloadTexture(texture_hovered);
+    UnloadFont(font);
+}
+
+void Button::SetPosition(float x, float y) {
+    bounds = {x, y, (float)texture.width, (float)texture.height};
+}
+
+void Button::SetText(const char *s) {
+    text = s;
+}
+
+std::pair<float, float> Button::GetSize() {
+    return {texture.width, texture.height};
 }
 
 bool Button::IsClicked(Vector2 Mouse) {
@@ -50,6 +69,11 @@ bool Button::IsHovered(Vector2 Mouse) {
 }
 
 void Button::Draw() {
-    DrawTexture(texture, bounds.x, bounds.y, WHITE);
+    if (IsHovered(GetMousePosition())) {
+        DrawTexture(texture_hovered, bounds.x, bounds.y, WHITE);
+    }
+    else DrawTexture(texture, bounds.x, bounds.y, WHITE);
+    Vector2 texSize = MeasureTextEx(font, text, 50.0f, 3.0f);
+    DrawTextEx(font, text, {bounds.x + bounds.width / 2.0f - texSize.x / 2.0f, bounds.y + bounds.height / 2.0f - texSize.y / 2.0f}, 50.0f, 3.0f, BLACK);
 }
 

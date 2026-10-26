@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <stdexcept>
+#include <utility>
 
 void createInitialState(SessionSnapshot& state, int boardSize) {
     if (boardSize <= 0) {
@@ -202,6 +203,24 @@ bool tryPass(SessionSnapshot& state) {
     return true;
 }
 
+bool tryPlayMove(GameSession& session, const Move& move) {
+    SessionSnapshot nextState = session.currentState;
+    if (move.isPass) {
+        if (!tryPass(nextState)) {
+            return false;
+        }
+    } else {
+        if (!tryPlayStone(nextState, move.position)) {
+            return false;
+        }
+    }
+    
+    session.undoHistory.push_back(session.currentState);
+    session.redoHistory.clear();
+    session.currentState = std::move(nextState);
+    return true;
+}
+
 Score calculateAreaScore(const SessionSnapshot& state, double komi) {
     const TerritoryMap& territoryOwner = state.territoryProposal;
     if (state.phase == GamePhase::Playing) {
@@ -338,6 +357,35 @@ bool reviewScore(SessionSnapshot& state, Stone player, bool accepts) {
 
     if (state.blackAcceptedScore && state.whiteAcceptedScore) {
         state.phase = GamePhase::Finished;
+    }
+
+    return true;
+}
+
+// Count = 1 for PvP, Count = 2 for PvE
+bool undoMoves(GameSession& session, std::size_t count) {
+    if (count == 0 || count > session.undoHistory.size()) {
+        return false;
+    }
+
+    for (std::size_t i = 0; i < count; ++i) {
+        session.redoHistory.push_back(session.currentState);
+        session.currentState = std::move(session.undoHistory.back());
+        session.undoHistory.pop_back();
+    }
+
+    return true;
+}
+
+bool redoMoves(GameSession& session, std::size_t count) {
+    if (count == 0 || count > session.redoHistory.size()) {
+        return false;
+    }
+
+    for (std::size_t i = 0; i < count; ++i) {
+        session.undoHistory.push_back(session.currentState);
+        session.currentState = std::move(session.redoHistory.back());
+        session.redoHistory.pop_back();
     }
 
     return true;

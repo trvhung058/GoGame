@@ -2,11 +2,10 @@
 #include <cmath> 
 
 Board::Board() {
-    for (int i = 0; i < 19; i++) {
-        for (int j = 0; j < 19; j++) {
-            board[i][j] = 0;
-        }
-    }
+    x = 50;
+    y = 50;
+    margin = 0;
+    cell_size = 0;
 }
 
 Board::~Board() {
@@ -30,77 +29,85 @@ void Board::UnloadAssets() {
 }
 
 void Board::Draw() {
-    if (isLoaded) {
-        x = 50;
-        y = 50;
-        DrawTexture(texBoard, x, y, WHITE);
-        cell_size = texBoard.height / 20.0f;
-        margin = cell_size;
+    if (!isLoaded) return;
 
-        for (int i = 0; i < 19; i++) {
-            DrawLine(x + margin + i * cell_size, y + margin, x + margin + i * cell_size, y + texBoard.height - margin, BLACK);
-            DrawLine(x + margin, y +  margin + i * cell_size, x + texBoard.height - margin, y + margin + i * cell_size, BLACK);
+    DrawTexture(texBoard, x, y, WHITE);
+    cell_size = texBoard.height / 20.0f;
+    margin = cell_size;
+
+    for (int i = 0; i < 19; i++) {
+        DrawLine(x + margin + i * cell_size, y + margin, x + margin + i * cell_size, y + texBoard.height - margin, BLACK);
+        DrawLine(x + margin, y + margin + i * cell_size, x + texBoard.height - margin, y + margin + i * cell_size, BLACK);
+    }
+}
+
+void Board::Draw(const std::vector<std::vector<Stone>>& grid) {
+    Draw(); 
+
+    if (!isLoaded) return;
+
+    int cols = static_cast<int>(grid.size());
+    for (int c = 0; c < cols; c++) {
+        int rows = static_cast<int>(grid[c].size());
+        for (int r = 0; r < rows; r++) {
+            DrawStone(c, r, grid[c][r]);
         }
-        
-        for (int i = 0; i < 19; i++) {
-            for (int j = 0; j < 19; j++) {
-                if (board[i][j] == 0) continue;
-
-                float pixelX = x + margin + i * cell_size - texBlackStone.height / 2.0;
-                float pixelY = y + margin + j * cell_size - texBlackStone.height / 2.0;
-
-                if (board[i][j] == 1){
-                    DrawTexture(texBlackStone, pixelX, pixelY, WHITE);
-                }
-                else if (board[i][j] == 2){
-                    DrawTexture(texWhiteStone, pixelX, pixelY, WHITE);
-                }
-            }
-        }
-
-        
     }
 }
 
-void Board::DrawGhostStone(int col, int row, int currentPlayer) {
-    if (board[col][row] != 0) return;
-
-    auto pixelPosition = GetPixelPosition(col, row);
-    int pixelX = pixelPosition.first;
-    int pixelY = pixelPosition.second;
-
-    Color ghostColor = (currentPlayer == 1) ? BLACK : WHITE;
-
-    DrawCircle(pixelX, pixelY, 15.0f, Fade(ghostColor, 0.5f));
-    
+void Board::Draw(const SessionSnapshot& state) {
+    Draw(state.board);
 }
 
-int Board::GetStone(int col, int row) {
-    return board[col][row];
+void Board::DrawStone(Point pos, Stone player) {
+    DrawStone(pos.col, pos.row, player);
 }
 
-void Board::SetStone(int col, int row, int player) {
-    board[col][row] = player;
-}
+void Board::DrawStone(int col, int row, Stone player) {
+    if (player == Stone::Empty || !isLoaded) return;
 
-void Board::DrawLastPlayed(int col, int row, int player) {
-    auto pixelPosition = GetPixelPosition(col, row);
-    int pixelX = pixelPosition.first;
-    int pixelY = pixelPosition.second;
+    Vector2 pixelPos = GetPixelPosition(col, row);
+    float stoneHalfSize = texBlackStone.height / 2.0f;
 
-    if (player == 1) {
-        DrawRectangle(pixelX - texBlackStone.height / 2.0, pixelY - texBlackStone.height / 2.0, texBlackStone.height, texBlackStone.height, WHITE);
-    }
-    else if (player == 2) {
-        DrawRectangle(pixelX - texBlackStone.height / 2.0, pixelY - texBlackStone.height / 2.0, texBlackStone.height, texBlackStone.height, BLACK);
+    if (player == Stone::Black) {
+        DrawTexture(texBlackStone, pixelPos.x - stoneHalfSize, pixelPos.y - stoneHalfSize, WHITE);
+    } else if (player == Stone::White) {
+        DrawTexture(texWhiteStone, pixelPos.x - stoneHalfSize, pixelPos.y - stoneHalfSize, WHITE);
     }
 }
 
-std::pair<int, int> Board::GetCellIndex(Vector2 MousePos) {
-    float mouseX = MousePos.x;
-    float mouseY = MousePos.y;
-    int col = static_cast<int>(std::round((mouseX - margin - x) / cell_size));
-    int row = static_cast<int>(std::round((mouseY - margin - y) / cell_size));
+void Board::DrawGhostStone(Point pos, Stone player) {
+    DrawGhostStone(pos.col, pos.row, player);
+}
+
+void Board::DrawGhostStone(int col, int row, Stone player) {
+    if (player == Stone::Empty || !isLoaded) return;
+
+    Vector2 pixelPos = GetPixelPosition(col, row);
+    Color ghostColor = (player == Stone::Black) ? BLACK : WHITE;
+
+    DrawCircle(pixelPos.x, pixelPos.y, 15.0f, Fade(ghostColor, 0.5f));
+}
+
+void Board::DrawLastPlayed(Point pos, Stone player) {
+    DrawLastPlayed(pos.col, pos.row, player);
+}
+
+void Board::DrawLastPlayed(int col, int row, Stone player) {
+    if (player == Stone::Empty || !isLoaded) return;
+
+    Vector2 pixelPos = GetPixelPosition(col, row);
+    Color markerColor = (player == Stone::Black) ? WHITE : BLACK;
+    float markerSize = 14.0f;
+
+    DrawRectangle(pixelPos.x - markerSize / 2.0f, pixelPos.y - markerSize / 2.0f, markerSize, markerSize, markerColor);
+}
+
+Point Board::GetCellIndex(Vector2 mousePos) {
+    if (cell_size <= 0) return {-1, -1};
+
+    int col = static_cast<int>(std::round((mousePos.x - margin - x) / cell_size));
+    int row = static_cast<int>(std::round((mousePos.y - margin - y) / cell_size));
 
     if (col < 0 || col >= 19 || row < 0 || row >= 19) {
         return {-1, -1};
@@ -109,9 +116,13 @@ std::pair<int, int> Board::GetCellIndex(Vector2 MousePos) {
     return {col, row}; 
 }
 
-std::pair<int, int> Board::GetPixelPosition(int col, int row){
-    int pixelX = x + margin + col * cell_size;
-    int pixelY = y + margin + row * cell_size;
+Vector2 Board::GetPixelPosition(Point pos) {
+    return GetPixelPosition(pos.col, pos.row);
+}
+
+Vector2 Board::GetPixelPosition(int col, int row) {
+    float pixelX = x + margin + col * cell_size;
+    float pixelY = y + margin + row * cell_size;
 
     return {pixelX, pixelY};
 }

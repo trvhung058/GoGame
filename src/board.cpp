@@ -2,8 +2,8 @@
 #include <cmath> 
 
 Board::Board() {
-    x = 50;
-    y = 50;
+    x = 80;
+    y = 100;
     margin = 0;
     cell_size = 0;
 }

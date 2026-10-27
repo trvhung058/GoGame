@@ -1,6 +1,7 @@
 #pragma once
 #include "raylib.h"
 #include <string>
+#include <utility>
 
 class UI {
     private:
@@ -16,7 +17,7 @@ class UI {
         void UnloadAssets();
         void SetPosition(int pixelX, int pixelY);
         void Draw(bool blur);
-
+        std::pair<int, int> GetSize();
 };
 
 class Button {

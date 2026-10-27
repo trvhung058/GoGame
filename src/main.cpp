@@ -2,7 +2,7 @@
 #include "game.h"
 #include <iostream>
 
-const int W = 1000;
+const int W = 1500;
 const int H = 1000;
 
 int main() {

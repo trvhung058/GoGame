@@ -162,6 +162,49 @@ namespace {
         }
         return foundChild ? bestScore : evaluatePosition(state, aiColor);
     }
+
+    int alphaBetaScore(const SessionSnapshot& state, int depth, bool maximizingPlayer, Stone aiColor, int alpha, int beta) {
+        if (depth <= 0 || state.phase != GamePhase::Playing) {
+            return evaluatePosition(state, aiColor);
+        }
+        std::vector<Move> candidateMoves = generateCandidateMoves(state, aiColor, maximizingPlayer);
+        if (candidateMoves.empty()) {
+            return evaluatePosition(state, aiColor);
+        }
+        bool foundChild = false;
+        int bestScore = maximizingPlayer ? std::numeric_limits<int>::lowest() : std::numeric_limits<int>::max();
+        for (const Move& move : candidateMoves) {
+            SessionSnapshot nextState = state;
+            if (move.isPass) {
+                if (tryPass(nextState)) {
+                    foundChild = true;
+                } else {
+                    continue; // Skip this move if passing is not allowed
+                }
+            } else {
+                if (tryPlayStone(nextState, move.position)) {
+                    foundChild = true;
+                } else {
+                    continue; // Skip this move if it's not legal
+                }
+            }
+            int score = alphaBetaScore(nextState, depth - 1, !maximizingPlayer, aiColor, alpha, beta);
+            if (maximizingPlayer) {
+                bestScore = std::max(score, bestScore);
+                alpha = std::max(alpha, score);
+                if (beta <= alpha) {
+                    break; // Beta cut-off
+                }
+            } else {
+                bestScore = std::min(score, bestScore);
+                beta = std::min(beta, score);
+                if (beta <= alpha) {
+                    break; // Alpha cut-off
+                }
+            }
+        }
+        return foundChild ? bestScore : evaluatePosition(state, aiColor);
+    }
 }
 
 Move chooseMediumMove(const SessionSnapshot& state, Stone aiColor) {
@@ -185,6 +228,38 @@ Move chooseMediumMove(const SessionSnapshot& state, Stone aiColor) {
             bestScore = score;
             bestMove = move;
         }
+        foundChild = true;
+    }
+    if (!foundChild) {
+        throw std::runtime_error("No legal moves available for the AI.");
+    }
+    return bestMove;
+}
+
+Move chooseHardMove(const SessionSnapshot& state, Stone aiColor) {
+    std::vector<Move> candidateMoves = generateCandidateMoves(state, aiColor, true);
+    bool foundChild = false;
+    int bestScore = std::numeric_limits<int>::lowest();
+    int alpha = std::numeric_limits<int>::lowest();
+    int beta = std::numeric_limits<int>::max();
+    Move bestMove = {true, {0, 0}}; // Default to pass if no legal moves are found
+    for (const Move& move : candidateMoves) {
+        SessionSnapshot nextState = state;
+        if (move.isPass) {
+            if (!tryPass(nextState)) {
+                continue; // Skip this move if passing is not allowed
+            }
+        } else {
+            if (!tryPlayStone(nextState, move.position)) {
+                continue; // Skip this move if it's not legal
+            }
+        }
+        int score = alphaBetaScore(nextState, 2, false, aiColor, alpha, beta);
+        if (!foundChild || score > bestScore) {
+            bestScore = score;
+            bestMove = move;
+        }
+        alpha = std::max(alpha, score);
         foundChild = true;
     }
     if (!foundChild) {

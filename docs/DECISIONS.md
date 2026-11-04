@@ -30,9 +30,11 @@ This document records the architectural and gameplay decisions agreed upon by th
 * **Errors:** Failed save/load attempts (e.g., corrupted JSON, missing file) will display an error in the GUI and keep the current session intact without crashing.
 
 ## 6. AI Parameters
-* **Response Budgets (Approximate):**
+* **Response Budgets (Approximate Targets):**
   * **Easy (Random):** 100 ms
   * **Medium (Minimax):** 300 ms
   * **Hard (Alpha-Beta):** 1,000 ms
+  * These targets are not currently enforced by a wall-clock limit; search performance still needs to be measured.
 * **Medium Search Bound:** Search to depth 2 (the AI move and the opponent's reply), considering at most 12 legal candidate moves at each ply. Rank legal moves by their immediate evaluation from the AI's perspective; keep the 12 highest-scoring moves on the AI's turn and the 12 lowest-scoring moves on the opponent's turn. Shuffle equal-scoring moves before sorting to vary tie choices. This bounds the search to at most 144 move sequences.
+* **Hard Search Bound:** Search 3 plies total (the AI's move, the opponent's reply, and the AI's next move), considering at most 12 candidates per ply. Use alpha-beta pruning to skip branches that cannot change the best choice. The search explores at most 1,728 leaf sequences before pruning.
 * **Cancellation:** A new action (like hitting Undo or resetting the board) while the AI is calculating will discard the stale AI output safely.

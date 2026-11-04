@@ -103,13 +103,13 @@ void Board::DrawLastPlayed(int col, int row, Stone player) {
     DrawRectangle(pixelPos.x - markerSize / 2.0f, pixelPos.y - markerSize / 2.0f, markerSize, markerSize, markerColor);
 }
 
-Point Board::GetCellIndex(Vector2 mousePos) {
+Point Board::GetCellIndex(Vector2 mousePos, int boardSize) {
     if (cell_size <= 0) return {-1, -1};
 
     int col = static_cast<int>(std::round((mousePos.x - margin - x) / cell_size));
     int row = static_cast<int>(std::round((mousePos.y - margin - y) / cell_size));
 
-    if (col < 0 || col >= 19 || row < 0 || row >= 19) {
+    if (col < 0 || col >= boardSize || row < 0 || row >= boardSize) {
         return {-1, -1};
     }
 

@@ -192,6 +192,31 @@ void Game::DrawSelectMode() {
     BackFromModeButton.Draw();
 }
 
+void Game::UpdateGameplay() {
+    int boardSize = static_cast<int>(session.currentState.board.size());
+    if (boardSize <= 0) return;
+
+    Point cell = board.GetCellIndex(GetMousePosition(), boardSize);
+
+    if (cell.col != -1 && cell.row != -1 && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        Move currentMove{ false, cell };
+        tryPlayMove(session, currentMove);
+    }
+}
+
+void Game::DrawGameplay() {
+    board.Draw(session.currentState.board);
+
+    int boardSize = static_cast<int>(session.currentState.board.size());
+    if (boardSize <= 0) return;
+
+    Point cell = board.GetCellIndex(GetMousePosition(), boardSize);
+
+    if (cell.col != -1 && cell.row != -1 && session.currentState.board[cell.col][cell.row] == Stone::Empty) {
+        board.DrawGhostStone(cell.col, cell.row, session.currentState.sideToMove);
+    }
+}
+
 void Game::Draw(){
     switch (currentScreen)
     {
@@ -206,7 +231,7 @@ void Game::Draw(){
         break;
     case PVP:
     case PVE:
-        board.Draw(session.currentState.board);
+        DrawGameplay();
         break;
     case SKIN:
         break;
@@ -231,7 +256,7 @@ void Game::Update(){
         break;
     case PVP:
     case PVE:
-        // UpdateGameplay();
+        UpdateGameplay();
         break;
     case SKIN:
         break;

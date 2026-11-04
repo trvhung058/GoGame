@@ -1,4 +1,5 @@
 #include "game.h"
+#include <cmath>
 
 Game::Game(){
     createInitialState(session.currentState, 19);
@@ -15,7 +16,7 @@ Game::Game(){
 
     const char *btnUnhovered = "assets/button/button_unhovered_300.png";
     const char *btnHovered = "assets/button/button_hovered_300.png";
-    const char *fontPath = "assets/Font/NotoSerif-Regular.ttf";
+    const char *fontPath = "assets/Font/NotoSerif-SemiBold.ttf";
 
     titleFont = LoadFontEx(fontPath, 128, 0, 0);
     SetTextureFilter(titleFont.texture, TEXTURE_FILTER_BILINEAR);
@@ -97,17 +98,16 @@ Game::~Game() {
 void Game::DrawPageTitle(const char* title) {
     if (title == nullptr || title[0] == '\0') return;
 
-    float fontSize = 95.0f; 
-    float spacing = 4.0f;
+    float fontSize = 96.0f; 
+    float spacing = 3.0f;
     Font currentFont = (titleFont.texture.id != 0) ? titleFont : GetFontDefault();
     Vector2 textSize = MeasureTextEx(currentFont, title, fontSize, spacing);
-    float titleX = (GetScreenWidth() - textSize.x) / 2.0f;
+    float titleX = std::round((GetScreenWidth() - textSize.x) / 2.0f);
     float titleY = 120.0f; 
 
-    DrawTextEx(currentFont, title, {titleX + 4.0f, titleY + 5.0f}, fontSize, spacing, Fade(BLACK, 0.75f));
-    DrawTextEx(currentFont, title, {titleX + 2.0f, titleY + 2.5f}, fontSize, spacing, Fade(BLACK, 0.45f));
+    DrawTextEx(currentFont, title, {titleX + 3.0f, titleY + 3.0f}, fontSize, spacing, Color{0, 0, 0, 200});
     
-    DrawTextEx(currentFont, title, {titleX, titleY}, fontSize, spacing, RAYWHITE);
+    DrawTextEx(currentFont, title, {titleX, titleY}, fontSize, spacing, WHITE);
 }
 
 void Game::UpdateMenu() {

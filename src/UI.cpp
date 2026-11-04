@@ -1,4 +1,5 @@
 #include "UI.h"
+#include <cmath>
 
 UI::UI() {
 
@@ -36,12 +37,16 @@ void Button::LoadAssets(const char *path, const char *path_hovered) {
 }
 
 void Button::LoadFonts(const char *path) {
-    font = LoadFontEx(path, 64, 0, 0);
+    font = LoadFontEx(path, 96, 0, 0);
     SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
 }
 
 void Button::UnloadAssets() {
     UnloadTexture(texture);
+    UnloadTexture(texture_hovered);
+    if (font.texture.id != 0) {
+        UnloadFont(font);
+    }
 }
 
 void Button::SetPosition(float x, float y) {
@@ -72,35 +77,30 @@ bool Button::IsHovered(Vector2 Mouse) {
 
 void Button::Draw() {
     if (IsHovered(GetMousePosition())) {
-        DrawTexture(texture_hovered, bounds.x, bounds.y, WHITE);
+        DrawTexture(texture_hovered, (int)bounds.x, (int)bounds.y, WHITE);
     }
     else {
-        DrawTexture(texture, bounds.x, bounds.y, WHITE);
+        DrawTexture(texture, (int)bounds.x, (int)bounds.y, WHITE);
     }
 
     if (text == nullptr || text[0] == '\0') return;
 
     Font currentFont = (font.texture.id != 0) ? font : GetFontDefault();
-    float fontSize = 50.0f;
-    float spacing = 3.0f;
+    float fontSize = 48.0f;
+    float spacing = 2.0f;
 
     Vector2 texSize = MeasureTextEx(currentFont, text, fontSize, spacing);
     if (texSize.x > bounds.width - 30.0f) {
-        fontSize = fontSize * ((bounds.width - 30.0f) / texSize.x);
-        spacing = 2.0f;
+        fontSize = std::floor(fontSize * ((bounds.width - 30.0f) / texSize.x));
+        spacing = 1.0f;
         texSize = MeasureTextEx(currentFont, text, fontSize, spacing);
     }
 
-    Vector2 textPos = {
-        bounds.x + (bounds.width - texSize.x) / 2.0f,
-        bounds.y + (bounds.height - texSize.y) / 2.0f
-    };
+    float textX = std::round(bounds.x + (bounds.width - texSize.x) / 2.0f);
+    float textY = std::round(bounds.y + (bounds.height - texSize.y) / 2.0f);
 
-    DrawTextEx(currentFont, text, {textPos.x + 2.0f, textPos.y + 3.0f}, fontSize, spacing, Fade(BLACK, 0.45f));
-    DrawTextEx(currentFont, text, {textPos.x + 1.0f, textPos.y + 1.5f}, fontSize, spacing, Fade(BLACK, 0.25f));
+    DrawTextEx(currentFont, text, {textX, textY + 2.0f}, fontSize, spacing, Color{0, 0, 0, 140});
 
-    DrawTextEx(currentFont, text, {textPos.x, textPos.y - 1.0f}, fontSize, spacing, Fade(WHITE, 0.20f));
-
-    Color mainColor = IsHovered(GetMousePosition()) ? Color{15, 10, 5, 255} : Color{35, 25, 20, 255};
-    DrawTextEx(currentFont, text, textPos, fontSize, spacing, mainColor);
+    Color mainColor = IsHovered(GetMousePosition()) ? Color{10, 10, 10, 255} : Color{30, 20, 15, 255};
+    DrawTextEx(currentFont, text, {textX, textY}, fontSize, spacing, mainColor);
 }

@@ -14,6 +14,7 @@ class Game {
         UI background;
         UI logo;
         Font titleFont;
+        Font textFont;
 
         // Menu buttons
         Button ContinueButton;
@@ -31,6 +32,14 @@ class Game {
         Button PvPButton;
         Button PvEButton;
         Button BackFromModeButton;
+
+        // Gameplay buttons
+        Button PassButton;
+        Button UndoButton;
+        Button RedoButton;
+        Button ResignButton;
+        Button SaveButton;
+        Button MainMenuButton;
 
         int selectedBoardSize = 19;
 

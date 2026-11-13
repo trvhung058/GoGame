@@ -97,6 +97,30 @@ namespace {
         }
     }
 
+    json gameModeToJson(GameMode mode) {
+        switch (mode) {
+            case GameMode::PvP:
+                return "PvP";
+            case GameMode::PvE:
+                return "PvE";
+        }
+        throw std::invalid_argument("Invalid game mode value");
+    }
+
+    GameMode gameModeFromJson(const json& value) {
+        if (!value.is_string()) {
+            throw std::invalid_argument("Expected a string for game mode value in JSON");
+        }
+        std::string modeStr = value.get<std::string>();
+        if (modeStr == "PvP") {
+            return GameMode::PvP;
+        } else if (modeStr == "PvE") {
+            return GameMode::PvE;
+        } else {
+            throw std::invalid_argument("Invalid game mode value in JSON");
+        }
+    }
+
     json stoneGridToJson(const std::vector<std::vector<Stone>>& grid) {
         if (grid.empty()) {
             throw std::invalid_argument("Grid is empty");
@@ -290,7 +314,8 @@ namespace {
             throw std::invalid_argument("Invalid game phase in currentState of GameSession");
         }
         json jSession = json::object();
-        jSession["formatVersion"] = 1;
+        jSession["formatVersion"] = 2;
+        jSession["gameMode"] = gameModeToJson(session.mode);
         jSession["currentState"] = sessionSnapshotToJson(session.currentState);
         jSession["undoHistory"] = json::array();
         for (const auto& snapshot : session.undoHistory) {
@@ -321,14 +346,23 @@ namespace {
             throw std::invalid_argument("Invalid value for formatVersion in game session JSON");
         }
         int formatVersion = value.at("formatVersion").get<int>();
-        if (formatVersion != 1) {
+        if (formatVersion != 1 && formatVersion != 2) {
             throw std::invalid_argument("Unsupported format version in game session JSON");
+        }
+
+        GameMode mode = GameMode::PvP;
+        if (formatVersion == 2) {
+            if (!value.contains("gameMode")) {
+                throw std::invalid_argument("Missing 'gameMode' field in game session JSON");
+            }
+            mode = gameModeFromJson(value.at("gameMode"));
         }
 
         if (!value.contains("currentState")) {
             throw std::invalid_argument("Missing 'currentState' field in game session JSON");
         }
         GameSession result{};
+        result.mode = mode;
         result.currentState = sessionSnapshotFromJson(value.at("currentState"));
         if (result.currentState.phase != GamePhase::Playing && result.currentState.phase != GamePhase::Finished) {
             throw std::invalid_argument("Invalid game phase in currentState of GameSession");

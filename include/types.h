@@ -11,6 +11,7 @@ enum class TerritoryOwner {
     Black,
     White
 };
+enum class GameMode { PvP, PvE };
 
 using TerritoryMap = std::vector<std::vector<TerritoryOwner>>;
 
@@ -38,6 +39,7 @@ struct GameSession {
     SessionSnapshot currentState{};
     std::vector<SessionSnapshot> undoHistory;
     std::vector<SessionSnapshot> redoHistory;
+    GameMode mode = GameMode::PvP;
 };
 
 struct Score {

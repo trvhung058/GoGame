@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <utility>
 #include <limits>
+#include <chrono>
 
 Move chooseEasyMove(const SessionSnapshot& state) {
     if (state.phase != GamePhase::Playing) {
@@ -81,7 +82,7 @@ int evaluatePosition(const SessionSnapshot& state, Stone aiColor) {
 }
 
 namespace {
-    std::vector<Move> generateCandidateMoves(const SessionSnapshot& state, Stone aiColor, bool maximizingPlayer) {
+    std::vector<Move> generateCandidateMoves(const SessionSnapshot& state, Stone aiColor, bool maximizingPlayer, const std::chrono::steady_clock::time_point* deadline = nullptr, bool* timeOut = nullptr) {
         if (aiColor != Stone::Black && aiColor != Stone::White) {
             throw std::invalid_argument("AI color must be either Black or White.");
         }
@@ -100,6 +101,12 @@ namespace {
                         moveScores.push_back({position, evaluatePosition(tempState, aiColor)});
                     }
                 }
+                if (deadline && std::chrono::steady_clock::now() >= *deadline) {
+                    if (timeOut) {
+                        *timeOut = true;
+                    }
+                    return {}; // Return empty if time limit exceeded
+                }
             }
         }
 
@@ -112,6 +119,13 @@ namespace {
             }
         }
 
+        if (deadline && std::chrono::steady_clock::now() >= *deadline) {
+            if (timeOut) {
+                *timeOut = true;
+            }
+            return {}; // Return empty if time limit exceeded
+        }
+
         // Shuffle moveScores to ensure randomness among moves with the same score
         static std::mt19937 rng(std::random_device{}());
         std::shuffle(moveScores.begin(), moveScores.end(), rng);
@@ -119,6 +133,13 @@ namespace {
         std::stable_sort(moveScores.begin(), moveScores.end(), [maximizingPlayer](const auto& a, const auto& b) {
             return maximizingPlayer ? a.second > b.second : a.second < b.second;
         });
+
+        if (deadline && std::chrono::steady_clock::now() >= *deadline) {
+            if (timeOut) {
+                *timeOut = true;
+            }
+            return {}; // Return empty if time limit exceeded
+        }
 
         std::vector<Move> candidates;
         for (std::size_t i = 0; i < std::min(moveScores.size(), static_cast<std::size_t>(12)); ++i) {
@@ -163,12 +184,16 @@ namespace {
         return foundChild ? bestScore : evaluatePosition(state, aiColor);
     }
 
-    int alphaBetaScore(const SessionSnapshot& state, int depth, bool maximizingPlayer, Stone aiColor, int alpha, int beta) {
+    int alphaBetaScore(const SessionSnapshot& state, int depth, bool maximizingPlayer, Stone aiColor, int alpha, int beta, std::chrono::steady_clock::time_point deadline, bool& timedOut) {
+        if (std::chrono::steady_clock::now() >= deadline) {
+            timedOut = true;
+            return evaluatePosition(state, aiColor);
+        }
         if (depth <= 0 || state.phase != GamePhase::Playing) {
             return evaluatePosition(state, aiColor);
         }
-        std::vector<Move> candidateMoves = generateCandidateMoves(state, aiColor, maximizingPlayer);
-        if (candidateMoves.empty()) {
+        std::vector<Move> candidateMoves = generateCandidateMoves(state, aiColor, maximizingPlayer, &deadline, &timedOut);
+        if (timedOut || candidateMoves.empty()) {
             return evaluatePosition(state, aiColor);
         }
         bool foundChild = false;
@@ -188,7 +213,10 @@ namespace {
                     continue; // Skip this move if it's not legal
                 }
             }
-            int score = alphaBetaScore(nextState, depth - 1, !maximizingPlayer, aiColor, alpha, beta);
+            int score = alphaBetaScore(nextState, depth - 1, !maximizingPlayer, aiColor, alpha, beta, deadline, timedOut);
+            if (timedOut) {
+                return evaluatePosition(state, aiColor);
+            }
             if (maximizingPlayer) {
                 bestScore = std::max(score, bestScore);
                 alpha = std::max(alpha, score);
@@ -237,12 +265,17 @@ Move chooseMediumMove(const SessionSnapshot& state, Stone aiColor) {
 }
 
 Move chooseHardMove(const SessionSnapshot& state, Stone aiColor) {
-    std::vector<Move> candidateMoves = generateCandidateMoves(state, aiColor, true);
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(1000); // 1 second time limit
+    bool timedOut = false;
+    std::vector<Move> candidateMoves = generateCandidateMoves(state, aiColor, true, &deadline, &timedOut);
+    if (timedOut) {
+        return Move{true, {0, 0}}; // Return pass if time runs out before generating moves
+    }
     bool foundChild = false;
     int bestScore = std::numeric_limits<int>::lowest();
     int alpha = std::numeric_limits<int>::lowest();
     int beta = std::numeric_limits<int>::max();
-    Move bestMove = {true, {0, 0}}; // Default to pass if no legal moves are found
+    Move bestMove = (candidateMoves.empty() ? Move{true, {0, 0}} : candidateMoves[0]); // Default to pass if no legal moves are found
     for (const Move& move : candidateMoves) {
         SessionSnapshot nextState = state;
         if (move.isPass) {
@@ -254,7 +287,10 @@ Move chooseHardMove(const SessionSnapshot& state, Stone aiColor) {
                 continue; // Skip this move if it's not legal
             }
         }
-        int score = alphaBetaScore(nextState, 2, false, aiColor, alpha, beta);
+        int score = alphaBetaScore(nextState, 2, false, aiColor, alpha, beta, deadline, timedOut);
+        if (timedOut) {
+            return bestMove; // Return the best move found so far if time runs out
+        }
         if (!foundChild || score > bestScore) {
             bestScore = score;
             bestMove = move;

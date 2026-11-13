@@ -20,7 +20,7 @@ The project currently includes:
 - Easy AI that chooses a random legal move, and Medium AI that uses a depth-2 minimax search with a limited candidate set.
 - Hard AI that uses alpha-beta pruning to search three plies, considering up to 12 candidate moves per ply.
 
-The UI is still being connected to the engine. In particular, gameplay input, scoring review, save/load controls, undo/redo controls, and AI turns are not yet wired into the screens. The AI response-time budgets are design targets; the searches do not yet enforce a time limit.
+The UI is still being connected to the engine. In particular, gameplay input, scoring review, save/load controls, undo/redo controls, and AI turns are not yet wired into the screens. Hard AI checks a one-second deadline during candidate generation and search, though an operation already in progress can overrun slightly. Easy and Medium do not enforce their response-time targets yet.
 
 ## Requirements
 

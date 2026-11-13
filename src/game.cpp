@@ -1,6 +1,8 @@
 #include "game.h"
 #include <cmath>
 #include <string>
+#include <sstream>
+#include <iomanip>
 #include "save_load.h"
 #include "ai.h"
 
@@ -422,32 +424,67 @@ void Game::DrawGameplay() {
     Vector2 mSize = MeasureTextEx(textFont, modeTitle.c_str(), 36.0f, 2.0f);
     DrawTextEx(textFont, modeTitle.c_str(), {std::round(950.0f + (490.0f - mSize.x) / 2.0f), 130.0f}, 36.0f, 2.0f, GOLD);
 
-    std::string turnText;
-    if (currentScreen == PVE && session.currentState.sideToMove == Stone::White) {
-        turnText = "Turn: AI Thinking...";
+    if (session.currentState.phase == GamePhase::Playing) {
+        std::string turnText;
+        if (currentScreen == PVE && session.currentState.sideToMove == Stone::White) {
+            turnText = "Turn: AI Thinking...";
+        } else {
+            turnText = (session.currentState.sideToMove == Stone::Black) ? "Turn: Black" : "Turn: White";
+        }
+        DrawTextEx(textFont, turnText.c_str(), {990.0f, 200.0f}, 30.0f, 2.0f, WHITE);
+
+        Color stoneColor = (session.currentState.sideToMove == Stone::Black) ? BLACK : WHITE;
+        DrawCircle(1380, 215, 18, stoneColor);
+        DrawCircleLines(1380, 215, 18, (session.currentState.sideToMove == Stone::Black) ? WHITE : BLACK);
+
+        std::string capturedBlack = "Black (Player): " + std::to_string(session.currentState.capturedByBlack);
+        std::string capturedWhite = (currentScreen == PVE) 
+            ? "White (AI): " + std::to_string(session.currentState.capturedByWhite)
+            : "White captured: " + std::to_string(session.currentState.capturedByWhite);
+        DrawTextEx(textFont, capturedBlack.c_str(), {990.0f, 270.0f}, 26.0f, 2.0f, RAYWHITE);
+        DrawTextEx(textFont, capturedWhite.c_str(), {990.0f, 320.0f}, 26.0f, 2.0f, RAYWHITE);
+
+        std::string passInfo = "Consecutive passes: " + std::to_string(session.currentState.consecutivePasses) + " / 2";
+        DrawTextEx(textFont, passInfo.c_str(), {990.0f, 370.0f}, 24.0f, 2.0f, LIGHTGRAY);
     } else {
-        turnText = (session.currentState.sideToMove == Stone::Black) ? "Turn: Black" : "Turn: White";
-    }
-    DrawTextEx(textFont, turnText.c_str(), {990.0f, 200.0f}, 30.0f, 2.0f, WHITE);
+        SessionSnapshot scoringState = session.currentState;
+        if (scoringState.phase == GamePhase::Playing) {
+            scoringState.phase = GamePhase::Scoring;
+        }
+        if (scoringState.territoryProposal.empty()) {
+            scoringState.territoryProposal = generateTerritoryProposal(scoringState);
+        }
 
-    Color stoneColor = (session.currentState.sideToMove == Stone::Black) ? BLACK : WHITE;
-    DrawCircle(1380, 215, 18, stoneColor);
-    DrawCircleLines(1380, 215, 18, (session.currentState.sideToMove == Stone::Black) ? WHITE : BLACK);
+        Score score{0.0, 6.5};
+        try {
+            score = calculateAreaScore(scoringState, 6.5);
+        } catch (...) {
+        }
 
-    std::string capturedBlack = "Black (Player): " + std::to_string(session.currentState.capturedByBlack);
-    std::string capturedWhite = (currentScreen == PVE) 
-        ? "White (AI): " + std::to_string(session.currentState.capturedByWhite)
-        : "White captured: " + std::to_string(session.currentState.capturedByWhite);
-    DrawTextEx(textFont, capturedBlack.c_str(), {990.0f, 270.0f}, 26.0f, 2.0f, RAYWHITE);
-    DrawTextEx(textFont, capturedWhite.c_str(), {990.0f, 320.0f}, 26.0f, 2.0f, RAYWHITE);
+        std::ostringstream ssB, ssW;
+        ssB << std::fixed << std::setprecision(1) << score.black;
+        ssW << std::fixed << std::setprecision(1) << score.white;
 
-    std::string passInfo = "Consecutive passes: " + std::to_string(session.currentState.consecutivePasses) + " / 2";
-    DrawTextEx(textFont, passInfo.c_str(), {990.0f, 370.0f}, 24.0f, 2.0f, LIGHTGRAY);
+        DrawTextEx(textFont, "FINAL SCORE", {1080.0f, 190.0f}, 30.0f, 2.0f, GOLD);
 
-    if (session.currentState.phase == GamePhase::Finished) {
+        std::string blackScoreStr = "Black: " + ssB.str() + " pts";
+        std::string whiteScoreStr = "White: " + ssW.str() + " pts (Komi 6.5)";
+        DrawTextEx(textFont, blackScoreStr.c_str(), {990.0f, 245.0f}, 26.0f, 2.0f, RAYWHITE);
+        DrawTextEx(textFont, whiteScoreStr.c_str(), {990.0f, 290.0f}, 26.0f, 2.0f, RAYWHITE);
+
+        if (score.black > score.white) {
+            std::ostringstream diff;
+            diff << std::fixed << std::setprecision(1) << (score.black - score.white);
+            std::string winStr = "Winner: Black by " + diff.str() + " pts!";
+            DrawTextEx(textFont, winStr.c_str(), {990.0f, 345.0f}, 26.0f, 2.0f, GREEN);
+        } else {
+            std::ostringstream diff;
+            diff << std::fixed << std::setprecision(1) << (score.white - score.black);
+            std::string winStr = "Winner: White by " + diff.str() + " pts!";
+            DrawTextEx(textFont, winStr.c_str(), {990.0f, 345.0f}, 26.0f, 2.0f, GREEN);
+        }
+
         DrawTextEx(textFont, "GAME OVER", {1100.0f, 430.0f}, 32.0f, 2.0f, RED);
-    } else if (session.currentState.phase == GamePhase::Scoring) {
-        DrawTextEx(textFont, "SCORING PHASE", {1080.0f, 430.0f}, 30.0f, 2.0f, YELLOW);
     }
 
     PassButton.Draw();

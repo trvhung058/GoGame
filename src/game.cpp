@@ -246,6 +246,19 @@ void Game::DrawSelectMode() {
 void Game::UpdateGameplay() {
     Vector2 mousePos = GetMousePosition();
 
+    if (MainMenuButton.IsClicked(mousePos)) {
+        currentScreen = MENU;
+        return;
+    }
+    else if (SaveButton.IsClicked(mousePos)) {
+        saveGame("savegame.json", session);
+        return;
+    }
+
+    if (session.currentState.phase != GamePhase::Playing) {
+        return;
+    }
+
     if (PassButton.IsClicked(mousePos)) {
         Move passMove;
         passMove.isPass = true;
@@ -266,14 +279,6 @@ void Game::UpdateGameplay() {
         session.currentState.phase = GamePhase::Finished;
         return;
     }
-    else if (SaveButton.IsClicked(mousePos)) {
-        saveGame("savegame.json", session);
-        return;
-    }
-    else if (MainMenuButton.IsClicked(mousePos)) {
-        currentScreen = MENU;
-        return;
-    }
 
     int boardSize = static_cast<int>(session.currentState.board.size());
     if (boardSize <= 0) return;
@@ -292,7 +297,7 @@ void Game::DrawGameplay() {
     board.Draw(session.currentState.board);
 
     int boardSize = static_cast<int>(session.currentState.board.size());
-    if (boardSize > 0) {
+    if (boardSize > 0 && session.currentState.phase == GamePhase::Playing) {
         Point cell = board.GetCellIndex(GetMousePosition(), boardSize);
         if (cell.col != -1 && cell.row != -1 && session.currentState.board[cell.col][cell.row] == Stone::Empty) {
             board.DrawGhostStone(cell.col, cell.row, session.currentState.sideToMove);

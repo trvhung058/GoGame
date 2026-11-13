@@ -6,6 +6,12 @@
 #include "board.h" 
 #include "UI.h"
 
+enum class AIDifficulty {
+    Easy,
+    Medium,
+    Hard
+};
+
 class Game {
     private:
         Board board;
@@ -33,6 +39,12 @@ class Game {
         Button PvEButton;
         Button BackFromModeButton;
 
+        // AI Difficulty buttons
+        Button EasyButton;
+        Button MediumButton;
+        Button HardButton;
+        Button BackFromDiffButton;
+
         // Gameplay buttons
         Button PassButton;
         Button UndoButton;
@@ -42,11 +54,14 @@ class Game {
         Button MainMenuButton;
 
         int selectedBoardSize = 19;
+        AIDifficulty aiDifficulty = AIDifficulty::Easy;
+        float aiThinkTimer = 0.0f; 
 
         enum Scene {
             MENU,
             SKIN,
             MODE,
+            DIFFICULTY,
             SIZE,
             PVP,
             PVE,
@@ -62,8 +77,13 @@ class Game {
         void UpdateSelectMode();
         void DrawSelectMode();
 
+        void UpdateSelectDifficulty();
+        void DrawSelectDifficulty();
+
         void UpdateGameplay();
         void DrawGameplay();
+
+        void HandleAITurn();
 
         void HandleInput();
 

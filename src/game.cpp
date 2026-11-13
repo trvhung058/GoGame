@@ -2,6 +2,7 @@
 #include <cmath>
 #include <string>
 #include "save_load.h"
+#include "ai.h"
 
 Game::Game(){
     createInitialState(session.currentState, 19);
@@ -28,6 +29,7 @@ Game::Game(){
     textFont = LoadFontEx(fontPath, 64, 0, 0);
     SetTextureFilter(textFont.texture, TEXTURE_FILTER_BILINEAR);
 
+    // ----------------- Menu Buttons (300px) -----------------
     ContinueButton.LoadAssets(btnUnhovered300, btnHovered300);
     ContinueButton.LoadFonts(fontPath);
     ContinueButton.SetText("Continue");
@@ -54,6 +56,7 @@ Game::Game(){
     SkinsButton.SetPosition(startX, startY + spacing * 2.0f);
     ExitButton.SetPosition(startX, startY + spacing * 3.0f);
 
+    // ----------------- Size Selection Buttons -----------------
     Size9Button.LoadAssets(btnUnhovered300, btnHovered300);
     Size9Button.LoadFonts(fontPath);
     Size9Button.SetText("9x9");
@@ -75,6 +78,7 @@ Game::Game(){
     Size19Button.SetPosition(startX, startY + spacing * 2.0f);
     BackFromSizeButton.SetPosition(startX, startY + spacing * 3.0f);
 
+    // ----------------- Mode Selection Buttons -----------------
     PvPButton.LoadAssets(btnUnhovered300, btnHovered300);
     PvPButton.LoadFonts(fontPath);
     PvPButton.SetText("Player vs Player");
@@ -92,6 +96,28 @@ Game::Game(){
     PvPButton.SetPosition(startX, modeStartY);
     PvEButton.SetPosition(startX, modeStartY + modeSpacing);
     BackFromModeButton.SetPosition(startX, modeStartY + modeSpacing * 2.0f);
+
+    // ----------------- AI Difficulty Buttons -----------------
+    EasyButton.LoadAssets(btnUnhovered300, btnHovered300);
+    EasyButton.LoadFonts(fontPath);
+    EasyButton.SetText("Easy");
+
+    MediumButton.LoadAssets(btnUnhovered300, btnHovered300);
+    MediumButton.LoadFonts(fontPath);
+    MediumButton.SetText("Medium");
+
+    HardButton.LoadAssets(btnUnhovered300, btnHovered300);
+    HardButton.LoadFonts(fontPath);
+    HardButton.SetText("Hard");
+
+    BackFromDiffButton.LoadAssets(btnUnhovered300, btnHovered300);
+    BackFromDiffButton.LoadFonts(fontPath);
+    BackFromDiffButton.SetText("Back");
+
+    EasyButton.SetPosition(startX, startY);
+    MediumButton.SetPosition(startX, startY + spacing);
+    HardButton.SetPosition(startX, startY + spacing * 2.0f);
+    BackFromDiffButton.SetPosition(startX, startY + spacing * 3.0f);
 
     float col1X = 980.0f;
     float col2X = 1220.0f;
@@ -223,11 +249,7 @@ void Game::UpdateSelectMode() {
         currentScreen = PVP;
     }
     else if (PvEButton.IsClicked(mousePos)) {
-        createInitialState(session.currentState, selectedBoardSize);
-        session.undoHistory.clear();
-        session.redoHistory.clear();
-        session.mode = GameMode::PvE;
-        currentScreen = PVE;
+        currentScreen = DIFFICULTY;
     }
     else if (BackFromModeButton.IsClicked(mousePos)) {
         currentScreen = SIZE;
@@ -240,6 +262,79 @@ void Game::DrawSelectMode() {
     PvPButton.Draw();
     PvEButton.Draw();
     BackFromModeButton.Draw();
+}
+
+// ======================= SELECT DIFFICULTY =======================
+void Game::UpdateSelectDifficulty() {
+    Vector2 mousePos = GetMousePosition();
+
+    if (EasyButton.IsClicked(mousePos)) {
+        aiDifficulty = AIDifficulty::Easy;
+        createInitialState(session.currentState, selectedBoardSize);
+        session.undoHistory.clear();
+        session.redoHistory.clear();
+        session.mode = GameMode::PvE;
+        aiThinkTimer = 0.0f;
+        currentScreen = PVE;
+    }
+    else if (MediumButton.IsClicked(mousePos)) {
+        aiDifficulty = AIDifficulty::Medium;
+        createInitialState(session.currentState, selectedBoardSize);
+        session.undoHistory.clear();
+        session.redoHistory.clear();
+        session.mode = GameMode::PvE;
+        aiThinkTimer = 0.0f;
+        currentScreen = PVE;
+    }
+    else if (HardButton.IsClicked(mousePos)) {
+        aiDifficulty = AIDifficulty::Hard;
+        createInitialState(session.currentState, selectedBoardSize);
+        session.undoHistory.clear();
+        session.redoHistory.clear();
+        session.mode = GameMode::PvE;
+        aiThinkTimer = 0.0f;
+        currentScreen = PVE;
+    }
+    else if (BackFromDiffButton.IsClicked(mousePos)) {
+        currentScreen = MODE;
+    }
+}
+
+void Game::DrawSelectDifficulty() {
+    background.Draw(true);
+    DrawPageTitle("AI Difficulty");
+    EasyButton.Draw();
+    MediumButton.Draw();
+    HardButton.Draw();
+    BackFromDiffButton.Draw();
+}
+
+// ======================= AI TURN HANDLER =======================
+void Game::HandleAITurn() {
+    if (session.currentState.phase != GamePhase::Playing) return;
+    if (session.currentState.sideToMove != Stone::White) return;
+
+    aiThinkTimer += GetFrameTime();
+    if (aiThinkTimer < 0.4f) {
+        return;
+    }
+
+    aiThinkTimer = 0.0f;
+    Move aiMove;
+
+    try {
+        if (aiDifficulty == AIDifficulty::Easy) {
+            aiMove = chooseEasyMove(session.currentState);
+        } else if (aiDifficulty == AIDifficulty::Medium) {
+            aiMove = chooseMediumMove(session.currentState, Stone::White);
+        } else if (aiDifficulty == AIDifficulty::Hard) {
+            aiMove = chooseHardMove(session.currentState, Stone::White);
+        }
+    } catch (...) {
+        aiMove = { true, {0, 0} };
+    }
+
+    tryPlayMove(session, aiMove);
 }
 
 // ======================= GAMEPLAY =======================
@@ -259,20 +354,28 @@ void Game::UpdateGameplay() {
         return;
     }
 
+    if (currentScreen == PVE && session.currentState.sideToMove == Stone::White) {
+        HandleAITurn();
+        return;
+    }
+
     if (PassButton.IsClicked(mousePos)) {
         Move passMove;
         passMove.isPass = true;
         tryPlayMove(session, passMove);
+        aiThinkTimer = 0.0f;
         return;
     }
     else if (UndoButton.IsClicked(mousePos)) {
         size_t count = (session.mode == GameMode::PvE) ? 2 : 1;
         undoMoves(session, count);
+        aiThinkTimer = 0.0f;
         return;
     }
     else if (RedoButton.IsClicked(mousePos)) {
         size_t count = (session.mode == GameMode::PvE) ? 2 : 1;
         redoMoves(session, count);
+        aiThinkTimer = 0.0f;
         return;
     }
     else if (ResignButton.IsClicked(mousePos)) {
@@ -287,7 +390,9 @@ void Game::UpdateGameplay() {
 
     if (cell.col != -1 && cell.row != -1 && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         Move currentMove{ false, cell };
-        tryPlayMove(session, currentMove);
+        if (tryPlayMove(session, currentMove)) {
+            aiThinkTimer = 0.0f;
+        }
     }
 }
 
@@ -297,7 +402,8 @@ void Game::DrawGameplay() {
     board.Draw(session.currentState.board);
 
     int boardSize = static_cast<int>(session.currentState.board.size());
-    if (boardSize > 0 && session.currentState.phase == GamePhase::Playing) {
+    bool isPlayerTurn = (currentScreen == PVP) || (currentScreen == PVE && session.currentState.sideToMove == Stone::Black);
+    if (boardSize > 0 && session.currentState.phase == GamePhase::Playing && isPlayerTurn) {
         Point cell = board.GetCellIndex(GetMousePosition(), boardSize);
         if (cell.col != -1 && cell.row != -1 && session.currentState.board[cell.col][cell.row] == Stone::Empty) {
             board.DrawGhostStone(cell.col, cell.row, session.currentState.sideToMove);
@@ -307,19 +413,31 @@ void Game::DrawGameplay() {
     DrawRectangleRounded({950.0f, 100.0f, 490.0f, 420.0f}, 0.08f, 16, Fade(BLACK, 0.45f));
     DrawRectangleRoundedLinesEx({950.0f, 100.0f, 490.0f, 420.0f}, 0.08f, 16, 2.0f, Fade(WHITE, 0.3f));
 
-    const char* modeTitle = (session.mode == GameMode::PvE) ? "Player vs AI" : "Player vs Player";
-    Vector2 mSize = MeasureTextEx(textFont, modeTitle, 36.0f, 2.0f);
-    DrawTextEx(textFont, modeTitle, {std::round(950.0f + (490.0f - mSize.x) / 2.0f), 130.0f}, 36.0f, 2.0f, GOLD);
+    std::string modeTitle = (session.mode == GameMode::PvE) ? "Player vs AI" : "Player vs Player";
+    if (session.mode == GameMode::PvE) {
+        if (aiDifficulty == AIDifficulty::Easy) modeTitle += " (Easy)";
+        else if (aiDifficulty == AIDifficulty::Medium) modeTitle += " (Med)";
+        else if (aiDifficulty == AIDifficulty::Hard) modeTitle += " (Hard)";
+    }
+    Vector2 mSize = MeasureTextEx(textFont, modeTitle.c_str(), 36.0f, 2.0f);
+    DrawTextEx(textFont, modeTitle.c_str(), {std::round(950.0f + (490.0f - mSize.x) / 2.0f), 130.0f}, 36.0f, 2.0f, GOLD);
 
-    const char* turnText = (session.currentState.sideToMove == Stone::Black) ? "Turn: Black" : "Turn: White";
-    DrawTextEx(textFont, turnText, {990.0f, 200.0f}, 32.0f, 2.0f, WHITE);
+    std::string turnText;
+    if (currentScreen == PVE && session.currentState.sideToMove == Stone::White) {
+        turnText = "Turn: AI Thinking...";
+    } else {
+        turnText = (session.currentState.sideToMove == Stone::Black) ? "Turn: Black" : "Turn: White";
+    }
+    DrawTextEx(textFont, turnText.c_str(), {990.0f, 200.0f}, 30.0f, 2.0f, WHITE);
 
     Color stoneColor = (session.currentState.sideToMove == Stone::Black) ? BLACK : WHITE;
-    DrawCircle(1360, 215, 18, stoneColor);
-    DrawCircleLines(1360, 215, 18, (session.currentState.sideToMove == Stone::Black) ? WHITE : BLACK);
+    DrawCircle(1380, 215, 18, stoneColor);
+    DrawCircleLines(1380, 215, 18, (session.currentState.sideToMove == Stone::Black) ? WHITE : BLACK);
 
-    std::string capturedBlack = "Black captured: " + std::to_string(session.currentState.capturedByBlack);
-    std::string capturedWhite = "White captured: " + std::to_string(session.currentState.capturedByWhite);
+    std::string capturedBlack = "Black (Player): " + std::to_string(session.currentState.capturedByBlack);
+    std::string capturedWhite = (currentScreen == PVE) 
+        ? "White (AI): " + std::to_string(session.currentState.capturedByWhite)
+        : "White captured: " + std::to_string(session.currentState.capturedByWhite);
     DrawTextEx(textFont, capturedBlack.c_str(), {990.0f, 270.0f}, 26.0f, 2.0f, RAYWHITE);
     DrawTextEx(textFont, capturedWhite.c_str(), {990.0f, 320.0f}, 26.0f, 2.0f, RAYWHITE);
 
@@ -353,6 +471,9 @@ void Game::Draw(){
     case MODE:
         DrawSelectMode();
         break;
+    case DIFFICULTY:
+        DrawSelectDifficulty();
+        break;
     case PVP:
     case PVE:
         DrawGameplay();
@@ -377,6 +498,9 @@ void Game::Update(){
         break;
     case MODE:
         UpdateSelectMode();
+        break;
+    case DIFFICULTY:
+        UpdateSelectDifficulty();
         break;
     case PVP:
     case PVE:

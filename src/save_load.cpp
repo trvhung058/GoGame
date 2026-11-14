@@ -121,6 +121,47 @@ namespace {
         }
     }
 
+    json deadStoneMapToJson(const DeadStoneMap& deadStones) {
+        if (deadStones.empty()) {
+            throw std::invalid_argument("Dead stone map is empty");
+        }
+
+        json jMap = json::array();
+
+        for (const auto& col : deadStones) {
+            if (col.size() != deadStones.size()) {
+                throw std::invalid_argument("Dead stone map is not square");
+            }
+            json jCol = json::array();
+            for (const auto& isDead : col) {
+                jCol.push_back(isDead);
+            }
+            jMap.push_back(jCol);
+        }
+        return jMap;
+    }
+
+    DeadStoneMap deadStoneMapFromJson(const json& value, std::size_t boardSize) {
+        if (!value.is_array() || value.size() != boardSize) {
+            throw std::invalid_argument("Invalid dimensions for dead stone map in JSON");
+        }
+
+        DeadStoneMap deadStones(boardSize, std::vector<bool>(boardSize, false));
+        for (std::size_t col = 0; col < boardSize; ++col) {
+            const auto& jCol = value.at(col);
+            if (!jCol.is_array() || jCol.size() != boardSize) {
+                throw std::invalid_argument("Invalid column size in dead stone map JSON");
+            }
+            for (std::size_t row = 0; row < boardSize; ++row) {
+                if (!jCol.at(row).is_boolean()) {
+                    throw std::invalid_argument("Invalid value in dead stone map JSON");
+                }
+                deadStones[col][row] = jCol.at(row).get<bool>();
+            }
+        }
+        return deadStones;
+    }
+
     json stoneGridToJson(const std::vector<std::vector<Stone>>& grid) {
         if (grid.empty()) {
             throw std::invalid_argument("Grid is empty");
@@ -202,13 +243,16 @@ namespace {
     }
 
     json sessionSnapshotToJson(const SessionSnapshot& state) {
-        if (state.board.size() != state.previousBoard.size() || state.board.size() != state.territoryProposal.size()) {
-            throw std::invalid_argument("Board, previousBoard, and territoryProposal must have the same size in SessionSnapshot");
+        if (state.board.size() != state.previousBoard.size() ||
+            state.board.size() != state.territoryProposal.size() ||
+            state.board.size() != state.deadStones.size()) {
+            throw std::invalid_argument("Board, previousBoard, territoryProposal, and deadStones must have the same size in SessionSnapshot");
         }
         json jSnapshot = json::object();
         jSnapshot["board"] = stoneGridToJson(state.board);
         jSnapshot["previousBoard"] = stoneGridToJson(state.previousBoard);
         jSnapshot["territoryProposal"] = territoryMapToJson(state.territoryProposal);
+        jSnapshot["deadStones"] = deadStoneMapToJson(state.deadStones);
         jSnapshot["sideToMove"] = stoneToJson(state.sideToMove);
         jSnapshot["capturedByBlack"] = state.capturedByBlack;
         jSnapshot["capturedByWhite"] = state.capturedByWhite;
@@ -219,7 +263,7 @@ namespace {
         return jSnapshot;
     }
 
-    SessionSnapshot sessionSnapshotFromJson(const json& value) {
+    SessionSnapshot sessionSnapshotFromJson(const json& value, int formatVersion) {
         if (!value.is_object()) {
             throw std::invalid_argument("Expected an object for session snapshot in JSON");
         }
@@ -232,6 +276,9 @@ namespace {
         }
         if (!value.contains("territoryProposal")) {
             throw std::invalid_argument("Missing 'territoryProposal' field in session snapshot JSON");
+        }
+        if (formatVersion >= 3 && !value.contains("deadStones")) {
+            throw std::invalid_argument("Missing 'deadStones' field in session snapshot JSON");
         }
         if (!value.contains("sideToMove")) {
             throw std::invalid_argument("Missing 'sideToMove' field in session snapshot JSON");
@@ -259,6 +306,9 @@ namespace {
         state.board = stoneGridFromJson(value.at("board"));
         state.previousBoard = stoneGridFromJson(value.at("previousBoard"));
         state.territoryProposal = territoryMapFromJson(value.at("territoryProposal"));
+        state.deadStones = formatVersion >= 3
+            ? deadStoneMapFromJson(value.at("deadStones"), state.board.size())
+            : DeadStoneMap(state.board.size(), std::vector<bool>(state.board.size(), false));
         state.sideToMove = stoneFromJson(value.at("sideToMove"));
         state.phase = gamePhaseFromJson(value.at("phase"));
 
@@ -314,7 +364,7 @@ namespace {
             throw std::invalid_argument("Invalid game phase in currentState of GameSession");
         }
         json jSession = json::object();
-        jSession["formatVersion"] = 2;
+        jSession["formatVersion"] = 3;
         jSession["gameMode"] = gameModeToJson(session.mode);
         jSession["currentState"] = sessionSnapshotToJson(session.currentState);
         jSession["undoHistory"] = json::array();
@@ -346,12 +396,12 @@ namespace {
             throw std::invalid_argument("Invalid value for formatVersion in game session JSON");
         }
         int formatVersion = value.at("formatVersion").get<int>();
-        if (formatVersion != 1 && formatVersion != 2) {
+        if (formatVersion != 1 && formatVersion != 2 && formatVersion != 3) {
             throw std::invalid_argument("Unsupported format version in game session JSON");
         }
 
         GameMode mode = GameMode::PvP;
-        if (formatVersion == 2) {
+        if (formatVersion >= 2) {
             if (!value.contains("gameMode")) {
                 throw std::invalid_argument("Missing 'gameMode' field in game session JSON");
             }
@@ -363,7 +413,7 @@ namespace {
         }
         GameSession result{};
         result.mode = mode;
-        result.currentState = sessionSnapshotFromJson(value.at("currentState"));
+        result.currentState = sessionSnapshotFromJson(value.at("currentState"), formatVersion);
         if (result.currentState.phase != GamePhase::Playing && result.currentState.phase != GamePhase::Finished) {
             throw std::invalid_argument("Invalid game phase in currentState of GameSession");
         }
@@ -375,7 +425,7 @@ namespace {
             throw std::invalid_argument("Invalid value for undoHistory in game session JSON");
         }
         for (const auto& jSnapshot : value.at("undoHistory")) {
-            auto snapshot = sessionSnapshotFromJson(jSnapshot);
+            auto snapshot = sessionSnapshotFromJson(jSnapshot, formatVersion);
             if (snapshot.board.size() != result.currentState.board.size()) {
                 throw std::invalid_argument("Inconsistent board size in undoHistory entry");
             }
@@ -389,7 +439,7 @@ namespace {
             throw std::invalid_argument("Invalid value for redoHistory in game session JSON");
         }
         for (const auto& jSnapshot : value.at("redoHistory")) {
-            auto snapshot = sessionSnapshotFromJson(jSnapshot);
+            auto snapshot = sessionSnapshotFromJson(jSnapshot, formatVersion);
             if (snapshot.board.size() != result.currentState.board.size()) {
                 throw std::invalid_argument("Inconsistent board size in redoHistory entry");
             }

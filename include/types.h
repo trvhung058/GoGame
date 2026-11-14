@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include <vector>
 #include <string>
 
@@ -14,8 +15,9 @@ enum class TerritoryOwner {
 enum class GameMode { PvP, PvE };
 
 using TerritoryMap = std::vector<std::vector<TerritoryOwner>>;
+using DeadStoneMap = std::vector<std::vector<bool>>;
 
-struct Point { int col; int row; };
+struct Point { std::size_t col; std::size_t row; };
 
 struct Move {
     bool isPass;
@@ -26,6 +28,7 @@ struct SessionSnapshot {
     std::vector<std::vector<Stone>> board;
     std::vector<std::vector<Stone>> previousBoard;
     TerritoryMap territoryProposal;
+    DeadStoneMap deadStones;
     Stone sideToMove;
     int capturedByBlack;
     int capturedByWhite;

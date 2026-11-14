@@ -4,7 +4,7 @@
 #include <cstddef>
 #include "types.h"
 
-bool isOnBoard(int col, int row, int size);
+bool isOnBoard(std::size_t col, std::size_t row, std::size_t size);
 std::vector<Point> findGroup(const SessionSnapshot& state, Point start);
 int countLiberties(const SessionSnapshot& state, const std::vector<Point>& group);
 std::vector<Point> findCapturedGroup(const SessionSnapshot& state, Point adjacentEnemyStone);
@@ -17,3 +17,4 @@ bool reviewScore(SessionSnapshot& state, Stone player, bool accepts);
 bool tryPlayMove(GameSession& session, const Move& move);
 bool undoMoves(GameSession& session, std::size_t count);
 bool redoMoves(GameSession& session, std::size_t count);
+bool toggleDeadGroups(SessionSnapshot& state, Point position);

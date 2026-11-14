@@ -18,10 +18,11 @@ void createInitialState(SessionSnapshot& state, int boardSize) {
     state.blackAcceptedScore = false;
     state.whiteAcceptedScore = false;
     state.territoryProposal = std::vector<std::vector<TerritoryOwner>>(boardSize, std::vector<TerritoryOwner>(boardSize, TerritoryOwner::Unresolved));
+    state.deadStones = std::vector<std::vector<bool>>(boardSize, std::vector<bool>(boardSize, false));
 }
 
-bool isOnBoard(int col, int row, int size) {
-    return col >= 0 && col < size && row >= 0 && row < size;
+bool isOnBoard(std::size_t col, std::size_t row, std::size_t size) {
+    return col < size && row < size;
 }
 
 std::vector<Point> findGroup(const SessionSnapshot& state, Point start) {
@@ -43,8 +44,8 @@ std::vector<Point> findGroup(const SessionSnapshot& state, Point start) {
         stack.pop_back();
 
         for (int i = 0; i < 4; ++i) {
-            int newCol = current.col + dx[i];
-            int newRow = current.row + dy[i];
+            size_t newCol = current.col + dx[i];
+            size_t newRow = current.row + dy[i];
 
             if (isOnBoard(newCol, newRow, state.board.size()) && !visited[newCol][newRow] && state.board[newCol][newRow] == targetStone) {
                 stack.push_back({ newCol, newRow });
@@ -67,8 +68,8 @@ int countLiberties(const SessionSnapshot& state, const std::vector<Point>& group
 
     for (const Point& stone : group) {
         for (int i = 0; i < 4; ++i) {
-            int newCol = stone.col + dx[i];
-            int newRow = stone.row + dy[i];
+            size_t newCol = stone.col + dx[i];
+            size_t newRow = stone.row + dy[i];
 
             if (isOnBoard(newCol, newRow, state.board.size()) && !visited[newCol][newRow] && state.board[newCol][newRow] == Stone::Empty) {
                 liberties++;
@@ -134,8 +135,8 @@ bool tryPlayStone(SessionSnapshot& state, Point position) {
     int capturedCount = 0;
 
     for (int i = 0; i < 4; ++i) {
-        int newCol = position.col + dx[i];
-        int newRow = position.row + dy[i];
+        size_t newCol = position.col + dx[i];
+        size_t newRow = position.row + dy[i];
 
         if (!isOnBoard(newCol, newRow, temp.board.size())) {
             continue;
@@ -229,10 +230,16 @@ Score calculateAreaScore(const SessionSnapshot& state, double komi) {
     if (territoryOwner.size() != state.board.size()) {
         throw std::invalid_argument("Territory map dimensions must match the board.");
     }
+    if (state.deadStones.size() != state.board.size()) {
+        throw std::invalid_argument("Dead stone map dimensions must match the board.");
+    }
 
     for (size_t col = 0; col < state.board.size(); ++col) {
         if (territoryOwner[col].size() != state.board[col].size()) {
             throw std::invalid_argument("Territory map dimensions must match the board.");
+        }
+        if (state.deadStones[col].size() != state.board[col].size()) {
+            throw std::invalid_argument("Dead stone map dimensions must match the board.");
         }
     }
 
@@ -241,9 +248,9 @@ Score calculateAreaScore(const SessionSnapshot& state, double komi) {
     for (size_t col = 0; col < state.board.size(); ++col) {
         for (size_t row = 0; row < state.board[col].size(); ++row) {
             Stone stone = state.board[col][row];
-            if (stone == Stone::Black) {
+            if (stone == Stone::Black && !state.deadStones[col][row]) {
                 score.black += 1.0;
-            } else if (stone == Stone::White) {
+            } else if (stone == Stone::White && !state.deadStones[col][row]) {
                 score.white += 1.0;
             } else {
                 TerritoryOwner owner = territoryOwner[col][row];
@@ -262,6 +269,14 @@ Score calculateAreaScore(const SessionSnapshot& state, double komi) {
 }
 
 TerritoryMap generateTerritoryProposal(const SessionSnapshot& state) {
+    if (state.board.size() != state.deadStones.size()) {
+        throw std::invalid_argument("Board and deadStones must have the same number of columns.");
+    }
+    for (size_t col = 0; col < state.board.size(); ++col) {
+        if (state.board[col].size() != state.deadStones[col].size()) {
+            throw std::invalid_argument("Board and deadStones must have the same number of rows in each column.");
+        }
+    }
     TerritoryMap proposal;
     proposal.reserve(state.board.size());
     for (const auto& column : state.board) {
@@ -279,14 +294,14 @@ TerritoryMap generateTerritoryProposal(const SessionSnapshot& state) {
 
     for (size_t col = 0; col < state.board.size(); ++col) {
         for (size_t row = 0; row < state.board[col].size(); ++row) {
-            if (state.board[col][row] != Stone::Empty || visited[col][row]) {
+            if ((state.board[col][row] != Stone::Empty && !state.deadStones[col][row]) || visited[col][row]) {
                 continue;
             }
 
             bool touchesBlack = false;
             bool touchesWhite = false;
             std::vector<Point> region;
-            std::vector<Point> stack = { { static_cast<int>(col), static_cast<int>(row) } };
+            std::vector<Point> stack = { { static_cast<size_t>(col), static_cast<size_t>(row) } };
             visited[col][row] = true;
 
             while (!stack.empty()) {
@@ -295,21 +310,21 @@ TerritoryMap generateTerritoryProposal(const SessionSnapshot& state) {
                 region.push_back(current);
 
                 for (int i = 0; i < 4; ++i) {
-                    int nextCol = current.col + dx[i];
-                    int nextRow = current.row + dy[i];
-                    if (nextCol < 0 || static_cast<size_t>(nextCol) >= state.board.size() ||
-                        nextRow < 0 || static_cast<size_t>(nextRow) >= state.board[nextCol].size()) {
+                    size_t nextCol = current.col + dx[i];
+                    size_t nextRow = current.row + dy[i];
+                    if (nextCol >= state.board.size() ||
+                        nextRow >= state.board[nextCol].size()) {
                         continue;
                     }
 
                     Stone neighbor = state.board[nextCol][nextRow];
-                    if (neighbor == Stone::Black) {
+                    if (neighbor == Stone::Black && !state.deadStones[nextCol][nextRow]) {
                         touchesBlack = true;
-                    } else if (neighbor == Stone::White) {
+                    } else if (neighbor == Stone::White && !state.deadStones[nextCol][nextRow]) {
                         touchesWhite = true;
                     } else if (!visited[nextCol][nextRow]) {
                         visited[nextCol][nextRow] = true;
-                        stack.push_back({ nextCol, nextRow });
+                        stack.push_back({ static_cast<size_t>(nextCol), static_cast<size_t>(nextRow) });
                     }
                 }
             }
@@ -344,6 +359,7 @@ bool reviewScore(SessionSnapshot& state, Stone player, bool accepts) {
         state.blackAcceptedScore = false;
         state.whiteAcceptedScore = false;
         state.territoryProposal = std::vector<std::vector<TerritoryOwner>>(state.board.size(), std::vector<TerritoryOwner>(state.board.size(), TerritoryOwner::Unresolved));
+        state.deadStones = std::vector<std::vector<bool>>(state.board.size(), std::vector<bool>(state.board.size(), false));
         return true;
     }
 
@@ -388,5 +404,47 @@ bool redoMoves(GameSession& session, std::size_t count) {
         session.redoHistory.pop_back();
     }
 
+    return true;
+}
+
+bool toggleDeadGroups(SessionSnapshot& state, Point position) {
+    if (state.phase != GamePhase::Scoring) {
+        return false;
+    }
+
+    if (!isOnBoard(position.col, position.row, state.board.size())) {
+        return false;
+    }
+    if (state.board[position.col][position.row] == Stone::Empty) {
+        return false;
+    }
+    if (state.deadStones.size() != state.board.size()) {
+        return false;
+    }
+    for (size_t c = 0; c < state.deadStones.size(); ++c) {
+        if (state.deadStones[c].size() != state.board[c].size()) {
+            return false;
+        }
+    }
+
+    std::vector<Point> group = findGroup(state, position);
+    if (group.empty()) {
+        return false;
+    }
+
+    const bool markDead = !state.deadStones[position.col][position.row];
+    bool proposalChanged = false;
+    for (const Point& stone : group) {
+        if (state.deadStones[stone.col][stone.row] != markDead) {
+            state.deadStones[stone.col][stone.row] = markDead;
+            proposalChanged = true;
+        }
+    }
+    if (proposalChanged) {
+        state.blackAcceptedScore = false;
+        state.whiteAcceptedScore = false;
+    }
+
+    state.territoryProposal = generateTerritoryProposal(state);
     return true;
 }

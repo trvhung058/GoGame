@@ -1,5 +1,6 @@
 #include "game.h"
 #include <cmath>
+#include <limits>
 #include <string>
 #include <sstream>
 #include <iomanip>
@@ -13,11 +14,11 @@ Game::Game(){
     background.LoadAssets("assets/go-jeu_blur.jpg");
     background.SetPosition(0, 0);
 
-    float screenWidth = static_cast<float>(GetScreenWidth());
+    int screenWidth = GetScreenWidth();
 
     logo.LoadAssets("assets/UI/icon258.png");
     std::pair<int, int> logoSize = logo.GetSize();
-    logo.SetPosition((screenWidth - logoSize.first) / 2.0f, 70);
+    logo.SetPosition((screenWidth - logoSize.first) / 2, 70);
 
     const char *btnUnhovered300 = "assets/button/button_unhovered_300.png";
     const char *btnHovered300 = "assets/button/button_hovered_300.png";
@@ -390,7 +391,9 @@ void Game::UpdateGameplay() {
 
     Point cell = board.GetCellIndex(mousePos, boardSize);
 
-    if (cell.col != -1 && cell.row != -1 && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+    if (cell.col != std::numeric_limits<std::size_t>::max() &&
+        cell.row != std::numeric_limits<std::size_t>::max() &&
+        IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         Move currentMove{ false, cell };
         if (tryPlayMove(session, currentMove)) {
             aiThinkTimer = 0.0f;
@@ -407,8 +410,10 @@ void Game::DrawGameplay() {
     bool isPlayerTurn = (currentScreen == PVP) || (currentScreen == PVE && session.currentState.sideToMove == Stone::Black);
     if (boardSize > 0 && session.currentState.phase == GamePhase::Playing && isPlayerTurn) {
         Point cell = board.GetCellIndex(GetMousePosition(), boardSize);
-        if (cell.col != -1 && cell.row != -1 && session.currentState.board[cell.col][cell.row] == Stone::Empty) {
-            board.DrawGhostStone(cell.col, cell.row, session.currentState.sideToMove);
+        if (cell.col != std::numeric_limits<std::size_t>::max() &&
+            cell.row != std::numeric_limits<std::size_t>::max() &&
+            session.currentState.board[cell.col][cell.row] == Stone::Empty) {
+            board.DrawGhostStone(cell, session.currentState.sideToMove);
         }
     }
 

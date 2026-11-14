@@ -58,7 +58,10 @@ void Button::SetText(const char *s) {
 }
 
 std::pair<float, float> Button::GetSize() {
-    return {texture.width, texture.height};
+    return {
+        static_cast<float>(texture.width),
+        static_cast<float>(texture.height)
+    };
 }
 
 bool Button::IsClicked(Vector2 Mouse) {

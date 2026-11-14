@@ -16,7 +16,7 @@ Move chooseEasyMove(const SessionSnapshot& state) {
     std::vector<Move> legalMoves;
     for (std::size_t col = 0; col < state.board.size(); ++col) {
         for (std::size_t row = 0; row < state.board[col].size(); ++row) {
-            Point position{static_cast<int>(col), static_cast<int>(row)};
+            Point position{col, row};
             if (state.board[col][row] == Stone::Empty) {
                 SessionSnapshot tempState = state;
                 if (tryPlayStone(tempState, position)) {
@@ -61,8 +61,8 @@ int evaluatePosition(const SessionSnapshot& state, Stone aiColor) {
             }
 
             const std::vector<Point> group = findGroup(state, {
-                static_cast<int>(col),
-                static_cast<int>(row)
+                col,
+                row
             });
             for (const Point& point : group) {
                 visited[point.col][point.row] = true;
@@ -96,7 +96,7 @@ namespace {
             for (std::size_t row = 0; row < state.board[col].size(); ++row) {
                 if (state.board[col][row] == Stone::Empty) {
                     SessionSnapshot tempState = state;
-                    Point position{static_cast<int>(col), static_cast<int>(row)};
+                    Point position{col, row};
                     if (tryPlayStone(tempState, position)) {
                         moveScores.push_back({position, evaluatePosition(tempState, aiColor)});
                     }

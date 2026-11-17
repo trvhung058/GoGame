@@ -198,6 +198,7 @@ bool tryPass(SessionSnapshot& state) {
     temp.consecutivePasses++;
     temp.sideToMove = (state.sideToMove == Stone::Black) ? Stone::White : Stone::Black;
     temp.previousBoard = state.board;
+    temp.lastMove = Move{ true, {0, 0} };
 
     if (temp.consecutivePasses >= 2) {
         temp.phase = GamePhase::Scoring;
@@ -236,7 +237,7 @@ bool tryPlayMove(GameSession& session, const Move& move) {
         session.positionHistory.push_back(nextState.board);
         nextState.positionHistorySize = session.positionHistory.size();
     }
-
+    nextState.lastMove = move;
     session.undoHistory.push_back(session.currentState);
     session.redoHistory.clear();
     session.currentState = std::move(nextState);

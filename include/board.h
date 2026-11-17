@@ -35,7 +35,7 @@ class Board {
         void DrawStone(Point pos, Stone player);
         void DrawStone(int col, int row, Stone player);
 
-        void DrawLastPlayed(Point pos, Stone player);
+        void DrawLastPlayed(Move lastMove, Stone player);
         void DrawLastPlayed(int col, int row, Stone player);
         
         Point GetCellIndex(Vector2 mousePos, int boardSize = 19);

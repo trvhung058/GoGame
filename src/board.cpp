@@ -117,7 +117,9 @@ void Board::DrawGhostStone(int col, int row, Stone player) {
     );
 }
 
-void Board::DrawLastPlayed(Point pos, Stone player) {
+void Board::DrawLastPlayed(Move lastMove, Stone player) {
+    if (lastMove.isPass) return;
+    Point pos = lastMove.position;
     DrawLastPlayed(static_cast<int>(pos.col), static_cast<int>(pos.row), player);
 }
 

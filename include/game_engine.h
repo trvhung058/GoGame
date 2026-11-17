@@ -19,3 +19,5 @@ bool undoMoves(GameSession& session, std::size_t count);
 bool redoMoves(GameSession& session, std::size_t count);
 bool toggleDeadGroups(SessionSnapshot& state, Point position);
 void initializePositionHistory(GameSession& session);
+TerritoryMap estimateTerritoryForWarning(const SessionSnapshot& state);
+bool shouldWarnAboutPointlessMove(const GameSession& session, Point position);

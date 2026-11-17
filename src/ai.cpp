@@ -7,6 +7,7 @@
 #include <utility>
 #include <limits>
 #include <chrono>
+#include <tuple>
 
 Move chooseEasyMove(const SessionSnapshot& state, const PositionHistory& positionHistory) {
     if (state.positionHistorySize == 0 ||
@@ -26,7 +27,11 @@ Move chooseEasyMove(const SessionSnapshot& state, const PositionHistory& positio
         }
     }
 
-    std::vector<Move> legalMoves;
+    std::vector<Move> allLegalMoves;
+    std::vector<Move> usefulMoves;
+    GameSession tempSession;
+    tempSession.currentState = state;
+    tempSession.positionHistory = positionHistory;
     for (std::size_t col = 0; col < state.board.size(); ++col) {
         for (std::size_t row = 0; row < state.board[col].size(); ++row) {
             Point position{col, row};
@@ -41,20 +46,29 @@ Move chooseEasyMove(const SessionSnapshot& state, const PositionHistory& positio
                         }
                     }
                     if (!isRepeatedPosition) {
-                        legalMoves.push_back({false, position});
+                        allLegalMoves.push_back({false, position});
+                        if (!shouldWarnAboutPointlessMove(tempSession, position)) {
+                            usefulMoves.push_back({false, position});
+                        }
                     }
                 }
             }
         }
     }
 
-    if (legalMoves.empty()) {
+    if (allLegalMoves.empty()) {
         return {true, {0, 0}}; // Pass move
     }
 
+    if (!usefulMoves.empty()) {
+        static std::mt19937 rng(std::random_device{}());
+        std::uniform_int_distribution<std::size_t> dist(0, usefulMoves.size() - 1);
+        return usefulMoves[dist(rng)];
+    }
+
     static std::mt19937 rng(std::random_device{}());
-    std::uniform_int_distribution<std::size_t> dist(0, legalMoves.size() - 1);
-    return legalMoves[dist(rng)];
+    std::uniform_int_distribution<std::size_t> dist(0, allLegalMoves.size() - 1);
+    return allLegalMoves[dist(rng)];
 }
 
 int evaluatePosition(const SessionSnapshot& state, Stone aiColor) {
@@ -122,8 +136,13 @@ namespace {
         if (state.phase != GamePhase::Playing) {
             throw std::invalid_argument("Cannot generate moves when the game is not in the Playing phase.");
         }
+
+        GameSession tempSession;
+        tempSession.currentState = state;
+        tempSession.positionHistory = positionHistory;
         
-        std::vector<std::pair<Point, int>> moveScores;
+        // The moveScores vector will hold tuples of move positions and their corresponding evaluation scores and whether shouldWarnAboutPointlessMove returns true or false for that move.
+        std::vector<std::tuple<Point, int, bool>> moveScores;
         for (std::size_t col = 0; col < state.board.size(); ++col) {
             for (std::size_t row = 0; row < state.board[col].size(); ++row) {
                 if (state.board[col][row] == Stone::Empty) {
@@ -131,7 +150,8 @@ namespace {
                     Point position{col, row};
                     if (tryPlayStone(tempState, position)) {
                         if (!containsPosition(positionHistory, tempState.board)) {
-                            moveScores.push_back({position, evaluatePosition(tempState, aiColor)});
+                            bool warn = shouldWarnAboutPointlessMove(tempSession, position);
+                            moveScores.push_back({position, evaluatePosition(tempState, aiColor), warn});
                         }
                     }
                 }
@@ -165,7 +185,10 @@ namespace {
         std::shuffle(moveScores.begin(), moveScores.end(), rng);
 
         std::stable_sort(moveScores.begin(), moveScores.end(), [maximizingPlayer](const auto& a, const auto& b) {
-            return maximizingPlayer ? a.second > b.second : a.second < b.second;
+            if (std::get<1>(a) != std::get<1>(b)) {
+                return maximizingPlayer ? std::get<1>(a) > std::get<1>(b) : std::get<1>(a) < std::get<1>(b);
+            }
+            return !std::get<2>(a) && std::get<2>(b); // Prefer moves that do not trigger warnings
         });
 
         if (deadline && std::chrono::steady_clock::now() >= *deadline) {
@@ -178,7 +201,7 @@ namespace {
         std::vector<Move> candidates;
 
         for (std::size_t i = 0; i < std::min(moveScores.size(), static_cast<std::size_t>(12)); ++i) {
-            candidates.push_back({false, moveScores[i].first});
+            candidates.push_back({false, std::get<0>(moveScores[i])});
         }
 
         SessionSnapshot passState = state;

@@ -370,6 +370,152 @@ TerritoryMap generateTerritoryProposal(const SessionSnapshot& state) {
     return proposal;
 }
 
+TerritoryMap estimateTerritoryForWarning(const SessionSnapshot& state) {
+    TerritoryMap estimate;
+    estimate.reserve(state.board.size());
+    for (const auto& column : state.board) {
+        estimate.emplace_back(column.size(), TerritoryOwner::Unresolved);
+    }
+
+    std::vector<std::vector<bool>> visited;
+    visited.reserve(state.board.size());
+    for (const auto& column : state.board) {
+        visited.emplace_back(column.size(), false);
+    }
+
+    for (size_t col = 0; col < state.board.size(); ++col) {
+        for (size_t row = 0; row < state.board[col].size(); ++row) {
+            if (state.board[col][row] != Stone::Empty || visited[col][row]) {
+                continue;
+            }
+
+            bool touchesBlack = false;
+            bool touchesWhite = false;
+            bool touchesEdge = false;
+            std::vector<Point> region;
+            std::vector<Point> stack = { { col, row } };
+            visited[col][row] = true;
+
+            while (!stack.empty()) {
+                Point current = stack.back();
+                stack.pop_back();
+                region.push_back(current);
+
+                auto visitNeighbor = [&](size_t nextCol, size_t nextRow) {
+                    if (nextCol >= state.board.size() ||
+                        nextRow >= state.board[nextCol].size()) {
+                        touchesEdge = true;
+                        return;
+                    }
+
+                    Stone neighbor = state.board[nextCol][nextRow];
+                    if (neighbor == Stone::Black) {
+                        touchesBlack = true;
+                    } else if (neighbor == Stone::White) {
+                        touchesWhite = true;
+                    } else if (!visited[nextCol][nextRow]) {
+                        visited[nextCol][nextRow] = true;
+                        stack.push_back({ nextCol, nextRow });
+                    }
+                };
+
+                if (current.col == 0) {
+                    touchesEdge = true;
+                } else {
+                    visitNeighbor(current.col - 1, current.row);
+                }
+
+                if (current.col + 1 >= state.board.size()) {
+                    touchesEdge = true;
+                } else {
+                    visitNeighbor(current.col + 1, current.row);
+                }
+
+                if (current.row == 0) {
+                    touchesEdge = true;
+                } else {
+                    visitNeighbor(current.col, current.row - 1);
+                }
+
+                if (current.row + 1 >= state.board[current.col].size()) {
+                    touchesEdge = true;
+                } else {
+                    visitNeighbor(current.col, current.row + 1);
+                }
+            }
+
+            TerritoryOwner owner = TerritoryOwner::Unresolved;
+            if (touchesBlack && touchesWhite) {
+                owner = TerritoryOwner::Neutral;
+            } else if (!touchesEdge && touchesBlack) {
+                owner = TerritoryOwner::Black;
+            } else if (!touchesEdge && touchesWhite) {
+                owner = TerritoryOwner::White;
+            }
+
+            for (const Point& point : region) {
+                estimate[point.col][point.row] = owner;
+            }
+        }
+    }
+
+    return estimate;
+}
+
+bool shouldWarnAboutPointlessMove(const GameSession& session, Point position) {
+    if (session.currentState.phase != GamePhase::Playing) {
+        return false;
+    }
+
+    if (!isOnBoard(position.col, position.row, session.currentState.board.size()) ||
+        session.currentState.board[position.col][position.row] != Stone::Empty) {
+        return false;
+    }
+
+    GameSession tempSession = session;
+    if (!tryPlayMove(tempSession, { false, position })) {
+        return false;
+    }
+
+    if (tempSession.currentState.capturedByBlack != session.currentState.capturedByBlack ||
+        tempSession.currentState.capturedByWhite != session.currentState.capturedByWhite) {
+        return false;
+    }
+
+    TerritoryMap originalEstimate = estimateTerritoryForWarning(session.currentState);
+    if (originalEstimate[position.col][position.row] == TerritoryOwner::Neutral || originalEstimate[position.col][position.row] == TerritoryOwner::Unresolved) {
+        return false;
+    }
+    if (originalEstimate[position.col][position.row] == TerritoryOwner::Black && session.currentState.sideToMove == Stone::Black ||
+        originalEstimate[position.col][position.row] == TerritoryOwner::White && session.currentState.sideToMove == Stone::White) {
+            const int dx[] = { -1, 1, 0, 0 };
+            const int dy[] = { 0, 0, -1, 1 };
+            for (int i = 0; i < 4; ++i) {
+                size_t neighborCol = position.col + dx[i];
+                size_t neighborRow = position.row + dy[i];
+                if (isOnBoard(neighborCol, neighborRow, session.currentState.board.size())) {
+                    Stone neighborStone = session.currentState.board[neighborCol][neighborRow];
+                    if (neighborStone != session.currentState.sideToMove) {
+                        continue;
+                    }
+                    std::vector<Point> neighborGroup = findGroup(session.currentState, { neighborCol, neighborRow });
+                    int prevLiberties = countLiberties(session.currentState, neighborGroup);
+                    if (prevLiberties != 1) {
+                        continue;
+                    }
+                    std::vector<Point> newGroup = findGroup(tempSession.currentState, { neighborCol, neighborRow });
+                    int newLiberties = countLiberties(tempSession.currentState, newGroup);
+                    if (newLiberties > 1) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+    }
+
+    return false;
+}
+
 bool reviewScore(SessionSnapshot& state, Stone player, bool accepts) {
     if (state.phase != GamePhase::Scoring) {
         return false;

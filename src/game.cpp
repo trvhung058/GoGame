@@ -417,7 +417,8 @@ void Game::DrawGameplay() {
         Point cell = board.GetCellIndex(GetMousePosition(), boardSize);
         if (cell.col != std::numeric_limits<std::size_t>::max() &&
             cell.row != std::numeric_limits<std::size_t>::max() &&
-            session.currentState.board[cell.col][cell.row] == Stone::Empty) {
+            session.currentState.board[cell.col][cell.row] == Stone::Empty &&
+            isLegalMove(session, cell)) {
             board.DrawGhostStone(cell, session.currentState.sideToMove);
         }
     }

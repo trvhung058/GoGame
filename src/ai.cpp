@@ -93,8 +93,8 @@ int evaluatePosition(const SessionSnapshot& state, Stone aiColor) {
         visited.emplace_back(column.size(), false);
     }
 
-    int aiAtariGroups = 0;
-    int opponentAtariGroups = 0;
+    int aiAtariStones = 0;
+    int opponentAtariStones = 0;
     for (std::size_t col = 0; col < state.board.size(); ++col) {
         for (std::size_t row = 0; row < state.board[col].size(); ++row) {
             const Stone stone = state.board[col][row];
@@ -112,15 +112,15 @@ int evaluatePosition(const SessionSnapshot& state, Stone aiColor) {
 
             if (countLiberties(state, group) == 1) {
                 if (stone == aiColor) {
-                    ++aiAtariGroups;
+                    aiAtariStones += static_cast<int>(group.size());
                 } else if (stone == opponentColor) {
-                    ++opponentAtariGroups;
+                    opponentAtariStones += static_cast<int>(group.size());
                 }
             }
         }
     }
 
-    return 10 * captureDifference + 3 * (opponentAtariGroups - aiAtariGroups);
+    return 10 * captureDifference + 3 * (opponentAtariStones - aiAtariStones);
 }
 
 namespace {

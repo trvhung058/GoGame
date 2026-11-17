@@ -8,7 +8,11 @@
 #include <limits>
 #include <chrono>
 
-Move chooseEasyMove(const SessionSnapshot& state) {
+Move chooseEasyMove(const SessionSnapshot& state, const PositionHistory& positionHistory) {
+    if (state.positionHistorySize == 0 ||
+        state.positionHistorySize > positionHistory.size()) {
+        throw std::invalid_argument("Invalid position history.");
+    }
     if (state.phase != GamePhase::Playing) {
         throw std::invalid_argument("Cannot choose a move when the game is not in the Playing phase.");
     }
@@ -20,7 +24,16 @@ Move chooseEasyMove(const SessionSnapshot& state) {
             if (state.board[col][row] == Stone::Empty) {
                 SessionSnapshot tempState = state;
                 if (tryPlayStone(tempState, position)) {
-                    legalMoves.push_back({false, position});
+                    bool isRepeatedPosition = false;
+                    for (std::size_t i = 0; i < state.positionHistorySize; ++i) {
+                        if (tempState.board == positionHistory[i]) {
+                            isRepeatedPosition = true;
+                            break;
+                        }
+                    }
+                    if (!isRepeatedPosition) {
+                        legalMoves.push_back({false, position});
+                    }
                 }
             }
         }
@@ -82,7 +95,11 @@ int evaluatePosition(const SessionSnapshot& state, Stone aiColor) {
 }
 
 namespace {
-    std::vector<Move> generateCandidateMoves(const SessionSnapshot& state, Stone aiColor, bool maximizingPlayer, const std::chrono::steady_clock::time_point* deadline = nullptr, bool* timeOut = nullptr) {
+    bool containsPosition(const PositionHistory& positionHistory, const BoardGrid& board) {
+        return std::find(positionHistory.begin(), positionHistory.end(), board) != positionHistory.end();
+    }
+
+    std::vector<Move> generateCandidateMoves(const SessionSnapshot& state, Stone aiColor, bool maximizingPlayer, const PositionHistory& positionHistory, const std::chrono::steady_clock::time_point* deadline = nullptr, bool* timeOut = nullptr) {
         if (aiColor != Stone::Black && aiColor != Stone::White) {
             throw std::invalid_argument("AI color must be either Black or White.");
         }
@@ -98,7 +115,9 @@ namespace {
                     SessionSnapshot tempState = state;
                     Point position{col, row};
                     if (tryPlayStone(tempState, position)) {
-                        moveScores.push_back({position, evaluatePosition(tempState, aiColor)});
+                        if (!containsPosition(positionHistory, tempState.board)) {
+                            moveScores.push_back({position, evaluatePosition(tempState, aiColor)});
+                        }
                     }
                 }
                 if (deadline && std::chrono::steady_clock::now() >= *deadline) {
@@ -149,11 +168,11 @@ namespace {
         return candidates;
     }
 
-    int minimaxScore(const SessionSnapshot& state, int depth, bool maximizingPlayer, Stone aiColor) {
+    int minimaxScore(const SessionSnapshot& state, int depth, bool maximizingPlayer, Stone aiColor, const PositionHistory& positionHistory) {
         if (depth <= 0 || state.phase != GamePhase::Playing) {
             return evaluatePosition(state, aiColor);
         }
-        std::vector<Move> candidateMoves = generateCandidateMoves(state, aiColor, maximizingPlayer);
+        std::vector<Move> candidateMoves = generateCandidateMoves(state, aiColor, maximizingPlayer, positionHistory);
         if (candidateMoves.empty()) {
             return evaluatePosition(state, aiColor);
         }
@@ -161,6 +180,7 @@ namespace {
         bool foundChild = false;
         for (const Move& move : candidateMoves) {
             SessionSnapshot nextState = state;
+            PositionHistory branchHistory = positionHistory;
             if (move.isPass) {
                 if (tryPass(nextState)) {
                     foundChild = true;
@@ -168,13 +188,16 @@ namespace {
                     continue; // Skip this move if passing is not allowed
                 }
             } else {
-                if (tryPlayStone(nextState, move.position)) {
-                    foundChild = true;
-                } else {
+                if (!tryPlayStone(nextState, move.position)) {
                     continue; // Skip this move if it's not legal
                 }
+                if (containsPosition(positionHistory, nextState.board)) {
+                    continue;
+                }
+                branchHistory.push_back(nextState.board);
+                foundChild = true;
             }
-            int score = minimaxScore(nextState, depth - 1, !maximizingPlayer, aiColor);
+            int score = minimaxScore(nextState, depth - 1, !maximizingPlayer, aiColor, branchHistory);
             if (maximizingPlayer) {
                 bestScore = std::max(score, bestScore);
             } else {
@@ -184,7 +207,7 @@ namespace {
         return foundChild ? bestScore : evaluatePosition(state, aiColor);
     }
 
-    int alphaBetaScore(const SessionSnapshot& state, int depth, bool maximizingPlayer, Stone aiColor, int alpha, int beta, std::chrono::steady_clock::time_point deadline, bool& timedOut) {
+    int alphaBetaScore(const SessionSnapshot& state, int depth, bool maximizingPlayer, Stone aiColor, int alpha, int beta, std::chrono::steady_clock::time_point deadline, bool& timedOut, const PositionHistory& positionHistory) {
         if (std::chrono::steady_clock::now() >= deadline) {
             timedOut = true;
             return evaluatePosition(state, aiColor);
@@ -192,7 +215,7 @@ namespace {
         if (depth <= 0 || state.phase != GamePhase::Playing) {
             return evaluatePosition(state, aiColor);
         }
-        std::vector<Move> candidateMoves = generateCandidateMoves(state, aiColor, maximizingPlayer, &deadline, &timedOut);
+        std::vector<Move> candidateMoves = generateCandidateMoves(state, aiColor, maximizingPlayer, positionHistory, &deadline, &timedOut);
         if (timedOut || candidateMoves.empty()) {
             return evaluatePosition(state, aiColor);
         }
@@ -200,6 +223,7 @@ namespace {
         int bestScore = maximizingPlayer ? std::numeric_limits<int>::lowest() : std::numeric_limits<int>::max();
         for (const Move& move : candidateMoves) {
             SessionSnapshot nextState = state;
+            PositionHistory branchHistory = positionHistory;
             if (move.isPass) {
                 if (tryPass(nextState)) {
                     foundChild = true;
@@ -207,13 +231,16 @@ namespace {
                     continue; // Skip this move if passing is not allowed
                 }
             } else {
-                if (tryPlayStone(nextState, move.position)) {
-                    foundChild = true;
-                } else {
+                if (!tryPlayStone(nextState, move.position)) {
                     continue; // Skip this move if it's not legal
                 }
+                if (containsPosition(positionHistory, nextState.board)) {
+                    continue;
+                }
+                branchHistory.push_back(nextState.board);
+                foundChild = true;
             }
-            int score = alphaBetaScore(nextState, depth - 1, !maximizingPlayer, aiColor, alpha, beta, deadline, timedOut);
+            int score = alphaBetaScore(nextState, depth - 1, !maximizingPlayer, aiColor, alpha, beta, deadline, timedOut, branchHistory);
             if (timedOut) {
                 return evaluatePosition(state, aiColor);
             }
@@ -235,13 +262,19 @@ namespace {
     }
 }
 
-Move chooseMediumMove(const SessionSnapshot& state, Stone aiColor) {
-    std::vector<Move> candidateMoves = generateCandidateMoves(state, aiColor, true);
+Move chooseMediumMove(const SessionSnapshot& state, Stone aiColor, const PositionHistory& positionHistory) {
+    if (state.positionHistorySize == 0 ||
+        state.positionHistorySize > positionHistory.size()) {
+        throw std::invalid_argument("Invalid position history.");
+    }
+    PositionHistory truncatedPositionHistory(positionHistory.begin(), positionHistory.begin() + state.positionHistorySize);
+    std::vector<Move> candidateMoves = generateCandidateMoves(state, aiColor, true, truncatedPositionHistory);
     bool foundChild = false;
     int bestScore = std::numeric_limits<int>::lowest();
     Move bestMove = {true, {0, 0}}; // Default to pass if no legal moves are found
     for (const Move& move : candidateMoves) {
         SessionSnapshot nextState = state;
+        PositionHistory branchHistory = truncatedPositionHistory;
         if (move.isPass) {
             if (!tryPass(nextState)) {
                 continue; // Skip this move if passing is not allowed
@@ -250,8 +283,9 @@ Move chooseMediumMove(const SessionSnapshot& state, Stone aiColor) {
             if (!tryPlayStone(nextState, move.position)) {
                 continue; // Skip this move if it's not legal
             }
+            branchHistory.push_back(nextState.board);
         }
-        int score = minimaxScore(nextState, 1, false, aiColor);
+        int score = minimaxScore(nextState, 1, false, aiColor, branchHistory);
         if (!foundChild || score > bestScore) {
             bestScore = score;
             bestMove = move;
@@ -264,10 +298,15 @@ Move chooseMediumMove(const SessionSnapshot& state, Stone aiColor) {
     return bestMove;
 }
 
-Move chooseHardMove(const SessionSnapshot& state, Stone aiColor) {
+Move chooseHardMove(const SessionSnapshot& state, Stone aiColor, const PositionHistory& positionHistory) {
+    if (state.positionHistorySize == 0 ||
+        state.positionHistorySize > positionHistory.size()) {
+        throw std::invalid_argument("Invalid position history.");
+    }
+    PositionHistory truncatedPositionHistory(positionHistory.begin(), positionHistory.begin() + state.positionHistorySize);
     auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(1000); // 1 second time limit
     bool timedOut = false;
-    std::vector<Move> candidateMoves = generateCandidateMoves(state, aiColor, true, &deadline, &timedOut);
+    std::vector<Move> candidateMoves = generateCandidateMoves(state, aiColor, true, truncatedPositionHistory, &deadline, &timedOut);
     if (timedOut) {
         return Move{true, {0, 0}}; // Return pass if time runs out before generating moves
     }
@@ -278,6 +317,7 @@ Move chooseHardMove(const SessionSnapshot& state, Stone aiColor) {
     Move bestMove = (candidateMoves.empty() ? Move{true, {0, 0}} : candidateMoves[0]); // Default to pass if no legal moves are found
     for (const Move& move : candidateMoves) {
         SessionSnapshot nextState = state;
+        PositionHistory branchHistory = truncatedPositionHistory;
         if (move.isPass) {
             if (!tryPass(nextState)) {
                 continue; // Skip this move if passing is not allowed
@@ -286,8 +326,9 @@ Move chooseHardMove(const SessionSnapshot& state, Stone aiColor) {
             if (!tryPlayStone(nextState, move.position)) {
                 continue; // Skip this move if it's not legal
             }
+            branchHistory.push_back(nextState.board);
         }
-        int score = alphaBetaScore(nextState, 2, false, aiColor, alpha, beta, deadline, timedOut);
+        int score = alphaBetaScore(nextState, 2, false, aiColor, alpha, beta, deadline, timedOut, branchHistory);
         if (timedOut) {
             return bestMove; // Return the best move found so far if time runs out
         }

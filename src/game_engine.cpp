@@ -21,6 +21,12 @@ void createInitialState(SessionSnapshot& state, int boardSize) {
     state.deadStones = std::vector<std::vector<bool>>(boardSize, std::vector<bool>(boardSize, false));
 }
 
+void initializePositionHistory(GameSession& session) {
+    session.positionHistory.clear();
+    session.positionHistory.push_back(session.currentState.board);
+    session.currentState.positionHistorySize = 1;
+}
+
 bool isOnBoard(std::size_t col, std::size_t row, std::size_t size) {
     return col < size && row < size;
 }
@@ -205,6 +211,10 @@ bool tryPass(SessionSnapshot& state) {
 }
 
 bool tryPlayMove(GameSession& session, const Move& move) {
+    if (session.currentState.positionHistorySize == 0 ||
+        session.currentState.positionHistorySize > session.positionHistory.size()) {
+        return false;
+    }
     SessionSnapshot nextState = session.currentState;
     if (move.isPass) {
         if (!tryPass(nextState)) {
@@ -214,8 +224,19 @@ bool tryPlayMove(GameSession& session, const Move& move) {
         if (!tryPlayStone(nextState, move.position)) {
             return false;
         }
+        for (std::size_t i = 0; i < session.currentState.positionHistorySize; ++i) {
+            if (nextState.board == session.positionHistory[i]) {
+                return false;
+            }
+        }
     }
-    
+
+    session.positionHistory.resize(session.currentState.positionHistorySize);
+    if (!move.isPass) {
+        session.positionHistory.push_back(nextState.board);
+        nextState.positionHistorySize = session.positionHistory.size();
+    }
+
     session.undoHistory.push_back(session.currentState);
     session.redoHistory.clear();
     session.currentState = std::move(nextState);

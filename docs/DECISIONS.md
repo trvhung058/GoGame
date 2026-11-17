@@ -16,7 +16,7 @@ This document records the architectural and gameplay decisions agreed upon by th
 * **Starting Player:** Black always plays first.
 * **Scoring System:** Chinese scoring (area scoring): count each living stone on the board and each empty intersection that is territory for that color. Captured stones are not added to the score. An empty region is not territory merely because it touches stones of only one color; it must be enclosed by living stones of that color. Board edges can form part of an enclosure but do not claim empty points by themselves. Regions that are open or bordered by both colors are neutral.
 * **Komi:** 6.5 points for White to compensate for Black's first-move advantage.
-* **Ko Rule:** Basic Ko rule is enforced (a player cannot immediately recreate the previous board state).
+* **Ko Rule:** Positional superko is enforced: a stone move is illegal if, after captures, it recreates any board position that has already occurred in the current game. The initial board counts as an occurred position. Passes are always legal and do not count as plays for the repetition check.
 * **Suicide Policy:** Suicide moves (placing a stone that immediately has 0 liberties without capturing enemy stones) are strictly prohibited.
 
 ## 4. End-Game and Phase Management

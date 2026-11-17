@@ -1,7 +1,9 @@
 #include "save_load.h"
 #include <stdexcept>
 #include <cstddef>
+#include <cstdint>
 #include <fstream>
+#include <limits>
 #include <utility>
 
 #include <nlohmann/json.hpp>
@@ -202,6 +204,54 @@ namespace {
         return grid;
     }
 
+    json positionHistoryToJson(const PositionHistory& positionHistory) {
+        if (positionHistory.empty()) {
+            throw std::invalid_argument("Position history is empty");
+        }
+
+        json jHistory = json::array();
+        for (const auto& board : positionHistory) {
+            jHistory.push_back(stoneGridToJson(board));
+        }
+        return jHistory;
+    }
+
+    PositionHistory positionHistoryFromJson(const json& value, std::size_t boardSize) {
+        if (!value.is_array() || value.empty()) {
+            throw std::invalid_argument("Expected a non-empty array for position history in JSON");
+        }
+
+        PositionHistory positionHistory;
+        positionHistory.reserve(value.size());
+        for (const auto& jBoard : value) {
+            BoardGrid board = stoneGridFromJson(jBoard);
+            if (board.size() != boardSize) {
+                throw std::invalid_argument("Inconsistent board size in position history JSON");
+            }
+            positionHistory.push_back(std::move(board));
+        }
+        return positionHistory;
+    }
+
+    std::size_t positionHistorySizeFromJson(const json& value) {
+        std::uint64_t size = 0;
+        if (value.is_number_unsigned()) {
+            size = value.get<std::uint64_t>();
+        } else if (value.is_number_integer()) {
+            const auto signedSize = value.get<std::int64_t>();
+            if (signedSize < 0) {
+                throw std::invalid_argument("Invalid value for positionHistorySize in session snapshot JSON");
+            }
+            size = static_cast<std::uint64_t>(signedSize);
+        } else {
+            throw std::invalid_argument("Invalid value for positionHistorySize in session snapshot JSON");
+        }
+        if (size > std::numeric_limits<std::size_t>::max()) {
+            throw std::invalid_argument("Invalid value for positionHistorySize in session snapshot JSON");
+        }
+        return static_cast<std::size_t>(size);
+    }
+
     json territoryMapToJson(const TerritoryMap& territory) {
         if (territory.empty()) {
             throw std::invalid_argument("Territory map is empty");
@@ -257,6 +307,7 @@ namespace {
         jSnapshot["capturedByBlack"] = state.capturedByBlack;
         jSnapshot["capturedByWhite"] = state.capturedByWhite;
         jSnapshot["consecutivePasses"] = state.consecutivePasses;
+        jSnapshot["positionHistorySize"] = state.positionHistorySize;
         jSnapshot["phase"] = gamePhaseToJson(state.phase);
         jSnapshot["blackAcceptedScore"] = state.blackAcceptedScore;
         jSnapshot["whiteAcceptedScore"] = state.whiteAcceptedScore;
@@ -279,6 +330,9 @@ namespace {
         }
         if (formatVersion >= 3 && !value.contains("deadStones")) {
             throw std::invalid_argument("Missing 'deadStones' field in session snapshot JSON");
+        }
+        if (formatVersion >= 4 && !value.contains("positionHistorySize")) {
+            throw std::invalid_argument("Missing 'positionHistorySize' field in session snapshot JSON");
         }
         if (!value.contains("sideToMove")) {
             throw std::invalid_argument("Missing 'sideToMove' field in session snapshot JSON");
@@ -333,6 +387,9 @@ namespace {
         if (state.consecutivePasses < 0) {
             throw std::invalid_argument("Invalid value for consecutivePasses in session snapshot JSON");
         }
+        state.positionHistorySize = formatVersion >= 4
+            ? positionHistorySizeFromJson(value.at("positionHistorySize"))
+            : 0;
 
         if (!value.at("blackAcceptedScore").is_boolean()) {
             throw std::invalid_argument("Invalid value for blackAcceptedScore in session snapshot JSON");
@@ -359,19 +416,60 @@ namespace {
         return state;
     }
 
+    void appendReconstructedPosition(GameSession& session, SessionSnapshot& snapshot) {
+        if (session.positionHistory.empty() || session.positionHistory.back() != snapshot.board) {
+            session.positionHistory.push_back(snapshot.board);
+        }
+        snapshot.positionHistorySize = session.positionHistory.size();
+    }
+
+    void reconstructPositionHistory(GameSession& session) {
+        session.positionHistory.clear();
+        SessionSnapshot* firstSnapshot = !session.undoHistory.empty()
+            ? &session.undoHistory.front()
+            : &session.currentState;
+        if (firstSnapshot->previousBoard != firstSnapshot->board) {
+            session.positionHistory.push_back(firstSnapshot->previousBoard);
+        }
+
+        for (auto& snapshot : session.undoHistory) {
+            appendReconstructedPosition(session, snapshot);
+        }
+        appendReconstructedPosition(session, session.currentState);
+        for (auto it = session.redoHistory.rbegin(); it != session.redoHistory.rend(); ++it) {
+            appendReconstructedPosition(session, *it);
+        }
+    }
+
+    void validateSnapshotPositionHistory(const SessionSnapshot& snapshot, const PositionHistory& positionHistory) {
+        if (snapshot.positionHistorySize == 0 ||
+            snapshot.positionHistorySize > positionHistory.size() ||
+            positionHistory[snapshot.positionHistorySize - 1] != snapshot.board) {
+            throw std::invalid_argument("Inconsistent position history size in session snapshot");
+        }
+    }
+
     json gameSessionToJson(const GameSession& session) {
         if (session.currentState.phase != GamePhase::Playing && session.currentState.phase != GamePhase::Finished) {
             throw std::invalid_argument("Invalid game phase in currentState of GameSession");
         }
+        validateSnapshotPositionHistory(session.currentState, session.positionHistory);
+        for (const auto& board : session.positionHistory) {
+            if (board.size() != session.currentState.board.size()) {
+                throw std::invalid_argument("Inconsistent board size in position history");
+            }
+        }
         json jSession = json::object();
-        jSession["formatVersion"] = 3;
+        jSession["formatVersion"] = 4;
         jSession["gameMode"] = gameModeToJson(session.mode);
         jSession["currentState"] = sessionSnapshotToJson(session.currentState);
+        jSession["positionHistory"] = positionHistoryToJson(session.positionHistory);
         jSession["undoHistory"] = json::array();
         for (const auto& snapshot : session.undoHistory) {
             if (snapshot.board.size() != session.currentState.board.size()) {
                 throw std::invalid_argument("Inconsistent board size in undoHistory entry");
             }
+            validateSnapshotPositionHistory(snapshot, session.positionHistory);
             jSession["undoHistory"].push_back(sessionSnapshotToJson(snapshot));
         }
         jSession["redoHistory"] = json::array();
@@ -379,6 +477,7 @@ namespace {
             if (snapshot.board.size() != session.currentState.board.size()) {
                 throw std::invalid_argument("Inconsistent board size in redoHistory entry");
             }
+            validateSnapshotPositionHistory(snapshot, session.positionHistory);
             jSession["redoHistory"].push_back(sessionSnapshotToJson(snapshot));
         }
         return jSession;
@@ -396,7 +495,7 @@ namespace {
             throw std::invalid_argument("Invalid value for formatVersion in game session JSON");
         }
         int formatVersion = value.at("formatVersion").get<int>();
-        if (formatVersion != 1 && formatVersion != 2 && formatVersion != 3) {
+        if (formatVersion != 1 && formatVersion != 2 && formatVersion != 3 && formatVersion != 4) {
             throw std::invalid_argument("Unsupported format version in game session JSON");
         }
 
@@ -444,6 +543,24 @@ namespace {
                 throw std::invalid_argument("Inconsistent board size in redoHistory entry");
             }
             result.redoHistory.push_back(snapshot);
+        }
+
+        if (formatVersion >= 4) {
+            if (!value.contains("positionHistory")) {
+                throw std::invalid_argument("Missing 'positionHistory' field in game session JSON");
+            }
+            result.positionHistory = positionHistoryFromJson(
+                value.at("positionHistory"),
+                result.currentState.board.size());
+            validateSnapshotPositionHistory(result.currentState, result.positionHistory);
+            for (const auto& snapshot : result.undoHistory) {
+                validateSnapshotPositionHistory(snapshot, result.positionHistory);
+            }
+            for (const auto& snapshot : result.redoHistory) {
+                validateSnapshotPositionHistory(snapshot, result.positionHistory);
+            }
+        } else {
+            reconstructPositionHistory(result);
         }
 
         return result;

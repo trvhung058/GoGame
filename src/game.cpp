@@ -9,6 +9,7 @@
 
 Game::Game(){
     createInitialState(session.currentState, 19);
+    initializePositionHistory(session);
 
     board.LoadAssetsDefault("assets/board/Board_800.png", "assets/b_40.png", "assets/w_40.png");
     background.LoadAssets("assets/go-jeu_blur.jpg");
@@ -246,6 +247,7 @@ void Game::UpdateSelectMode() {
 
     if (PvPButton.IsClicked(mousePos)) {
         createInitialState(session.currentState, selectedBoardSize);
+        initializePositionHistory(session);
         session.undoHistory.clear();
         session.redoHistory.clear();
         session.mode = GameMode::PvP;
@@ -274,6 +276,7 @@ void Game::UpdateSelectDifficulty() {
     if (EasyButton.IsClicked(mousePos)) {
         aiDifficulty = AIDifficulty::Easy;
         createInitialState(session.currentState, selectedBoardSize);
+        initializePositionHistory(session);
         session.undoHistory.clear();
         session.redoHistory.clear();
         session.mode = GameMode::PvE;
@@ -283,6 +286,7 @@ void Game::UpdateSelectDifficulty() {
     else if (MediumButton.IsClicked(mousePos)) {
         aiDifficulty = AIDifficulty::Medium;
         createInitialState(session.currentState, selectedBoardSize);
+        initializePositionHistory(session);
         session.undoHistory.clear();
         session.redoHistory.clear();
         session.mode = GameMode::PvE;
@@ -292,6 +296,7 @@ void Game::UpdateSelectDifficulty() {
     else if (HardButton.IsClicked(mousePos)) {
         aiDifficulty = AIDifficulty::Hard;
         createInitialState(session.currentState, selectedBoardSize);
+        initializePositionHistory(session);
         session.undoHistory.clear();
         session.redoHistory.clear();
         session.mode = GameMode::PvE;
@@ -327,11 +332,11 @@ void Game::HandleAITurn() {
 
     try {
         if (aiDifficulty == AIDifficulty::Easy) {
-            aiMove = chooseEasyMove(session.currentState);
+            aiMove = chooseEasyMove(session.currentState, session.positionHistory);
         } else if (aiDifficulty == AIDifficulty::Medium) {
-            aiMove = chooseMediumMove(session.currentState, Stone::White);
+            aiMove = chooseMediumMove(session.currentState, Stone::White, session.positionHistory);
         } else if (aiDifficulty == AIDifficulty::Hard) {
-            aiMove = chooseHardMove(session.currentState, Stone::White);
+            aiMove = chooseHardMove(session.currentState, Stone::White, session.positionHistory);
         }
     } catch (...) {
         aiMove = { true, {0, 0} };

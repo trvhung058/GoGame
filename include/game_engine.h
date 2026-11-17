@@ -18,3 +18,4 @@ bool tryPlayMove(GameSession& session, const Move& move);
 bool undoMoves(GameSession& session, std::size_t count);
 bool redoMoves(GameSession& session, std::size_t count);
 bool toggleDeadGroups(SessionSnapshot& state, Point position);
+void initializePositionHistory(GameSession& session);

@@ -17,6 +17,15 @@ Move chooseEasyMove(const SessionSnapshot& state, const PositionHistory& positio
         throw std::invalid_argument("Cannot choose a move when the game is not in the Playing phase.");
     }
 
+    if (state.consecutivePasses == 1) {
+        SessionSnapshot tempState = state;
+        if (tryPass(tempState)) {
+            if (evaluatePosition(tempState, state.sideToMove) >= 0) {
+                return {true, {0, 0}}; // Pass move
+            }
+        }
+    }
+
     std::vector<Move> legalMoves;
     for (std::size_t col = 0; col < state.board.size(); ++col) {
         for (std::size_t row = 0; row < state.board[col].size(); ++row) {
@@ -51,6 +60,12 @@ Move chooseEasyMove(const SessionSnapshot& state, const PositionHistory& positio
 int evaluatePosition(const SessionSnapshot& state, Stone aiColor) {
     if (aiColor != Stone::Black && aiColor != Stone::White) {
         throw std::invalid_argument("AI color must be either Black or White.");
+    }
+    if (state.phase == GamePhase::Scoring || state.phase == GamePhase::Finished) {
+        Score areaScore = calculateAreaScore(state, 6.5);
+        double aiScore = (aiColor == Stone::Black ? areaScore.black : areaScore.white);
+        double opponentScore = (aiColor == Stone::Black ? areaScore.white : areaScore.black);
+        return static_cast<int>((aiScore - opponentScore) * 2.0); // Multiply by 2 to convert to integer
     }
 
     const Stone opponentColor = aiColor == Stone::Black ? Stone::White : Stone::Black;
@@ -161,8 +176,14 @@ namespace {
         }
 
         std::vector<Move> candidates;
+
         for (std::size_t i = 0; i < std::min(moveScores.size(), static_cast<std::size_t>(12)); ++i) {
             candidates.push_back({false, moveScores[i].first});
+        }
+
+        SessionSnapshot passState = state;
+        if (tryPass(passState)) {
+            candidates.push_back({true, {0, 0}});
         }
 
         return candidates;

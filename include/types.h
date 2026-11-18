@@ -39,6 +39,7 @@ struct SessionSnapshot {
     GamePhase phase;
     bool blackAcceptedScore;
     bool whiteAcceptedScore;
+    Move lastMove{ true, {0, 0} };
 };
 
 struct GameSession {

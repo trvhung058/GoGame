@@ -210,6 +210,22 @@ bool tryPass(SessionSnapshot& state) {
     return true;
 }
 
+bool isLegalMove(const GameSession& session, Point position) {
+    if (session.currentState.phase != GamePhase::Playing) return false;
+    
+    SessionSnapshot nextState = session.currentState;
+    if (!tryPlayStone(nextState, position)) {
+        return false;
+    }
+
+    for (std::size_t i = 0; i < session.currentState.positionHistorySize; ++i) {
+        if (nextState.board == session.positionHistory[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool tryPlayMove(GameSession& session, const Move& move) {
     if (session.currentState.positionHistorySize == 0 ||
         session.currentState.positionHistorySize > session.positionHistory.size()) {

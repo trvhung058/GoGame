@@ -45,6 +45,17 @@ class Game {
         Button HardButton;
         Button BackFromDiffButton;
 
+        // Skins buttons
+        Button BoardSkin1Button;
+        Button BoardSkin2Button;
+        Button BoardSkin3Button;
+
+        Button StoneSkin1Button;
+        Button StoneSkin2Button;
+        Button StoneSkin3Button;
+
+        Button BackFromSkinButton;
+
         // Gameplay buttons
         Button PassButton;
         Button UndoButton;
@@ -79,6 +90,9 @@ class Game {
 
         void UpdateSelectDifficulty();
         void DrawSelectDifficulty();
+
+        void UpdateSkin();
+        void DrawSkin();
 
         void UpdateGameplay();
         void DrawGameplay();

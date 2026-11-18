@@ -11,7 +11,7 @@ Game::Game(){
     createInitialState(session.currentState, 19);
     initializePositionHistory(session);
 
-    board.LoadAssetsDefault("assets/board/Board_800.png", "assets/b_70.png", "assets/w_70.png");
+    board.LoadAssetsDefault("assets/board/Board_800.png", "assets/stone/b_70.png", "assets/stone/w_70.png");
     background.LoadAssets("assets/go-jeu_blur.jpg");
     background.SetPosition(0, 0);
 
@@ -123,6 +123,48 @@ Game::Game(){
     HardButton.SetPosition(startX, startY + spacing * 2.0f);
     BackFromDiffButton.SetPosition(startX, startY + spacing * 3.0f);
 
+    float skinCol1X = 400.0f;
+    float skinCol2X = 800.0f;
+    float skinStartY = 330.0f;
+    float skinSpacing = texSize.second + 20.0f;
+
+    // Board Skins
+    BoardSkin1Button.LoadAssets(btnUnhovered300, btnHovered300);
+    BoardSkin1Button.LoadFonts(fontPath);
+    BoardSkin1Button.SetText("Classic Wood");
+    BoardSkin1Button.SetPosition(skinCol1X, skinStartY);
+
+    BoardSkin2Button.LoadAssets(btnUnhovered300, btnHovered300);
+    BoardSkin2Button.LoadFonts(fontPath);
+    BoardSkin2Button.SetText("Hardwood");
+    BoardSkin2Button.SetPosition(skinCol1X, skinStartY + skinSpacing);
+
+    BoardSkin3Button.LoadAssets(btnUnhovered300, btnHovered300);
+    BoardSkin3Button.LoadFonts(fontPath);
+    BoardSkin3Button.SetText("Dark Wood");
+    BoardSkin3Button.SetPosition(skinCol1X, skinStartY + skinSpacing * 2.0f);
+
+    // Stone Skins
+    StoneSkin1Button.LoadAssets(btnUnhovered300, btnHovered300);
+    StoneSkin1Button.LoadFonts(fontPath);
+    StoneSkin1Button.SetText("Classic 3D");
+    StoneSkin1Button.SetPosition(skinCol2X, skinStartY);
+
+    StoneSkin2Button.LoadAssets(btnUnhovered300, btnHovered300);
+    StoneSkin2Button.LoadFonts(fontPath);
+    StoneSkin2Button.SetText("Glossy Stone");
+    StoneSkin2Button.SetPosition(skinCol2X, skinStartY + skinSpacing);
+
+    StoneSkin3Button.LoadAssets(btnUnhovered300, btnHovered300);
+    StoneSkin3Button.LoadFonts(fontPath);
+    StoneSkin3Button.SetText("Pure Solid");
+    StoneSkin3Button.SetPosition(skinCol2X, skinStartY + skinSpacing * 2.0f);
+
+    BackFromSkinButton.LoadAssets(btnUnhovered300, btnHovered300);
+    BackFromSkinButton.LoadFonts(fontPath);
+    BackFromSkinButton.SetText("Back");
+    BackFromSkinButton.SetPosition((screenWidth - texSize.first) / 2.0f, skinStartY + skinSpacing * 3.2f);
+
     float col1X = 980.0f;
     float col2X = 1220.0f;
     float row1Y = 560.0f;
@@ -218,20 +260,14 @@ void Game::UpdateSelectSize() {
     if (Size9Button.IsClicked(mousePos)) {
         selectedBoardSize = 9;
         currentScreen = MODE;
-        board.LoadAssetsBlackStone("assets/b_70.png");
-        board.LoadAssetsWhiteStone("assets/w_70.png");
     }
     else if (Size13Button.IsClicked(mousePos)) {
         selectedBoardSize = 13;
         currentScreen = MODE;
-        board.LoadAssetsBlackStone("assets/b_50.png");
-        board.LoadAssetsWhiteStone("assets/w_50.png");
     }
     else if (Size19Button.IsClicked(mousePos)) {
         selectedBoardSize = 19;
         currentScreen = MODE;
-        board.LoadAssetsBlackStone("assets/b_40.png");
-        board.LoadAssetsWhiteStone("assets/w_40.png");
     }
     else if (BackFromSizeButton.IsClicked(mousePos)) {
         currentScreen = MENU;
@@ -323,6 +359,79 @@ void Game::DrawSelectDifficulty() {
     BackFromDiffButton.Draw();
 }
 
+// ======================= SKINS =======================
+void Game::UpdateSkin() {
+    Vector2 mousePos = GetMousePosition();
+
+    if (BoardSkin1Button.IsClicked(mousePos)) {
+        board.SetBoardSkin(BoardSkinType::ClassicWood);
+    }
+    else if (BoardSkin2Button.IsClicked(mousePos)) {
+        board.SetBoardSkin(BoardSkinType::Hardwood);
+    }
+    else if (BoardSkin3Button.IsClicked(mousePos)) {
+        board.SetBoardSkin(BoardSkinType::DarkWood);
+    }
+
+    else if (StoneSkin1Button.IsClicked(mousePos)) {
+        board.SetStoneSkin(StoneSkinType::Classic);
+    }
+    else if (StoneSkin2Button.IsClicked(mousePos)) {
+        board.SetStoneSkin(StoneSkinType::FlatMinimal);
+    }
+    else if (StoneSkin3Button.IsClicked(mousePos)) {
+        board.SetStoneSkin(StoneSkinType::PureSolid);
+    }
+
+    else if (BackFromSkinButton.IsClicked(mousePos)) {
+        currentScreen = MENU;
+    }
+}
+
+void Game::DrawSkin() {
+    background.Draw(true);
+    DrawPageTitle("Skins Customization");
+
+    Vector2 tSize1 = MeasureTextEx(textFont, "Board Skins", 40.0f, 2.0f);
+    DrawTextEx(textFont, "Board Skins", {550.0f - tSize1.x / 2.0f, 260.0f}, 40.0f, 2.0f, GOLD);
+
+    Vector2 tSize2 = MeasureTextEx(textFont, "Stone Skins", 40.0f, 2.0f);
+    DrawTextEx(textFont, "Stone Skins", {950.0f - tSize2.x / 2.0f, 260.0f}, 40.0f, 2.0f, GOLD);
+
+    BoardSkin1Button.Draw();
+    BoardSkin2Button.Draw();
+    BoardSkin3Button.Draw();
+
+    StoneSkin1Button.Draw();
+    StoneSkin2Button.Draw();
+    StoneSkin3Button.Draw();
+
+    auto markActive = [this](float x, float y) {
+        DrawRectangleRoundedLinesEx({x - 4.0f, y - 4.0f, 308.0f, 140.0f}, 0.12f, 16, 3.0f, GREEN);
+    };
+
+    if (board.GetBoardSkin() == BoardSkinType::ClassicWood) markActive(400.0f, 330.0f);
+    else if (board.GetBoardSkin() == BoardSkinType::Hardwood) markActive(400.0f, 477.0f);
+    else if (board.GetBoardSkin() == BoardSkinType::DarkWood) markActive(400.0f, 624.0f);
+
+    if (board.GetStoneSkin() == StoneSkinType::Classic) markActive(800.0f, 330.0f);
+    else if (board.GetStoneSkin() == StoneSkinType::FlatMinimal) markActive(800.0f, 477.0f);
+    else if (board.GetStoneSkin() == StoneSkinType::PureSolid) markActive(800.0f, 624.0f);
+
+    DrawTexture(LoadTexture("assets/stone/b_70.png"), 1120, 370, WHITE);
+    DrawTexture(LoadTexture("assets/stone/w_70.png"), 1180, 370, WHITE);
+
+    DrawTexture(LoadTexture("assets/stone/b_2_70.png"), 1120, 517, WHITE);
+    DrawTexture(LoadTexture("assets/stone/w_2_70.png"), 1180, 517, WHITE);
+
+    DrawCircle(1145, 680, 24, Color{15, 15, 15, 255});
+    DrawCircleLines(1145, 680, 24, Color{80, 80, 80, 255});
+    DrawCircle(1205, 680, 24, Color{245, 245, 245, 255});
+    DrawCircleLines(1205, 680, 24, Color{180, 180, 180, 255});
+
+    BackFromSkinButton.Draw();
+}
+
 // ======================= AI TURN HANDLER =======================
 void Game::HandleAITurn() {
     if (session.currentState.phase != GamePhase::Playing) return;
@@ -370,7 +479,7 @@ void Game::UpdateGameplay() {
 
     if (currentScreen == PVE && session.currentState.sideToMove == Stone::White) {
         HandleAITurn();
-        return;
+        return; 
     }
 
     if (PassButton.IsClicked(mousePos)) {
@@ -427,8 +536,7 @@ void Game::DrawGameplay() {
         Point cell = board.GetCellIndex(GetMousePosition(), boardSize);
         if (cell.col != std::numeric_limits<std::size_t>::max() &&
             cell.row != std::numeric_limits<std::size_t>::max() &&
-            session.currentState.board[cell.col][cell.row] == Stone::Empty &&
-            isLegalMove(session, cell)) {
+            session.currentState.board[cell.col][cell.row] == Stone::Empty) {
             board.DrawGhostStone(cell, session.currentState.sideToMove);
         }
     }
@@ -532,11 +640,12 @@ void Game::Draw(){
     case DIFFICULTY:
         DrawSelectDifficulty();
         break;
+    case SKIN:
+        DrawSkin();
+        break;
     case PVP:
     case PVE:
         DrawGameplay();
-        break;
-    case SKIN:
         break;
     case EXIT:
         break;
@@ -560,11 +669,12 @@ void Game::Update(){
     case DIFFICULTY:
         UpdateSelectDifficulty();
         break;
+    case SKIN:
+        UpdateSkin();
+        break;
     case PVP:
     case PVE:
         UpdateGameplay();
-        break;
-    case SKIN:
         break;
     case EXIT:
         break;

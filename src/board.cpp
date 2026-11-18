@@ -22,19 +22,46 @@ void Board::LoadAssetsDefault(const char *boardPath, const char *blackPath, cons
 
 void Board::UnloadAssets() {
     if (isLoaded) {
-        UnloadTexture(texBoard);
-        UnloadTexture(texBlackStone);
-        UnloadTexture(texWhiteStone);
+        if (texBoard.id != 0) UnloadTexture(texBoard);
+        if (texBlackStone.id != 0) UnloadTexture(texBlackStone);
+        if (texWhiteStone.id != 0) UnloadTexture(texWhiteStone);
         isLoaded = false;
     }
 }
 
-void Board::LoadAssetsBlackStone(const char *path) {
-    texBlackStone = LoadTexture(path);
+void Board::SetBoardSkin(BoardSkinType skin) {
+    currentBoardSkin = skin;
+    const char* path = "assets/board/Board_800.png";
+    if (skin == BoardSkinType::Hardwood) {
+        path = "assets/board/Hardwood_board_800.png";
+    } else if (skin == BoardSkinType::DarkWood) {
+        path = "assets/board/wood_800.png";
+    }
+
+    if (texBoard.id != 0) {
+        UnloadTexture(texBoard);
+    }
+    texBoard = LoadTexture(path);
 }
 
-void Board::LoadAssetsWhiteStone(const char *path) {
-    texWhiteStone = LoadTexture(path);
+void Board::SetStoneSkin(StoneSkinType skin) {
+    currentStoneSkin = skin;
+    if (skin == StoneSkinType::PureSolid) {
+        return;
+    }
+
+    const char* bPath = "assets/stone/b_70.png";
+    const char* wPath = "assets/stone/w_70.png";
+    if (skin == StoneSkinType::FlatMinimal) {
+        bPath = "assets/stone/b_2_70.png";
+        wPath = "assets/stone/w_2_70.png";
+    }
+
+    if (texBlackStone.id != 0) UnloadTexture(texBlackStone);
+    if (texWhiteStone.id != 0) UnloadTexture(texWhiteStone);
+
+    texBlackStone = LoadTexture(bPath);
+    texWhiteStone = LoadTexture(wPath);
 }
 
 void Board::Draw(int sz) {
@@ -63,7 +90,7 @@ void Board::Draw(int sz) {
 }
 
 void Board::Draw(const std::vector<std::vector<Stone>>& grid) {
-    Draw(static_cast<int>(grid.size()));
+    Draw(grid.size()); 
 
     if (!isLoaded) return;
 
@@ -88,6 +115,19 @@ void Board::DrawStone(int col, int row, Stone player) {
     if (player == Stone::Empty || !isLoaded) return;
 
     Vector2 pixelPos = GetPixelPosition(col, row);
+
+    if (currentStoneSkin == StoneSkinType::PureSolid) {
+        float radius = (cell_size > 0) ? (cell_size * 0.46f) : 18.0f;
+        if (player == Stone::Black) {
+            DrawCircle(static_cast<int>(pixelPos.x), static_cast<int>(pixelPos.y), radius, Color{15, 15, 15, 255});
+            DrawCircleLines(static_cast<int>(pixelPos.x), static_cast<int>(pixelPos.y), radius, Color{60, 60, 60, 255});
+        } else if (player == Stone::White) {
+            DrawCircle(static_cast<int>(pixelPos.x), static_cast<int>(pixelPos.y), radius, Color{245, 245, 245, 255});
+            DrawCircleLines(static_cast<int>(pixelPos.x), static_cast<int>(pixelPos.y), radius, Color{180, 180, 180, 255});
+        }
+        return;
+    }
+
     float stoneHalfSize = texBlackStone.height / 2.0f;
 
     if (player == Stone::Black) {
@@ -117,11 +157,12 @@ void Board::DrawGhostStone(int col, int row, Stone player) {
     Vector2 pixelPos = GetPixelPosition(col, row);
     Color ghostColor = (player == Stone::Black) ? BLACK : WHITE;
 
+    float radius = (cell_size > 0) ? (cell_size * 0.46f) : 16.0f;
     DrawCircle(
         static_cast<int>(pixelPos.x),
         static_cast<int>(pixelPos.y),
-        15.0f,
-        Fade(ghostColor, 0.5f)
+        radius,
+        Fade(ghostColor, 0.45f)
     );
 }
 
@@ -136,7 +177,7 @@ void Board::DrawLastPlayed(int col, int row, Stone player) {
 
     Vector2 pixelPos = GetPixelPosition(col, row);
     Color markerColor = (player == Stone::Black) ? WHITE : BLACK;
-    float markerSize = texBlackStone.width / 3.0f;
+    float markerSize = 14.0f;
 
     DrawRectangle(
         static_cast<int>(pixelPos.x - markerSize / 2.0f),
@@ -158,7 +199,7 @@ Point Board::GetCellIndex(Vector2 mousePos, int boardSize) {
         return {invalidCoordinate, invalidCoordinate};
     }
 
-    return {static_cast<std::size_t>(col), static_cast<std::size_t>(row)};
+    return {static_cast<std::size_t>(col), static_cast<std::size_t>(row)}; 
 }
 
 Vector2 Board::GetPixelPosition(Point pos) {

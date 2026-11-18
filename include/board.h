@@ -3,6 +3,18 @@
 #include "raylib.h"
 #include "types.h"
 
+enum class BoardSkinType {
+    ClassicWood,
+    Hardwood,
+    DarkWood
+};
+
+enum class StoneSkinType {
+    Classic,
+    FlatMinimal,
+    PureSolid
+};
+
 class Board {
     private:
         int x;
@@ -14,6 +26,9 @@ class Board {
         Texture2D texBlackStone;
         Texture2D texWhiteStone;
         bool isLoaded = false; 
+
+        BoardSkinType currentBoardSkin = BoardSkinType::ClassicWood;
+        StoneSkinType currentStoneSkin = StoneSkinType::Classic;
         
     public:
         Board(); 
@@ -24,8 +39,12 @@ class Board {
 
         void LoadAssetsDefault(const char *boardPath, const char *blackPath, const char *whitePath);
         void UnloadAssets();
-        void LoadAssetsBlackStone(const char *path);
-        void LoadAssetsWhiteStone(const char *path);
+        
+        void SetBoardSkin(BoardSkinType skin);
+        void SetStoneSkin(StoneSkinType skin);
+
+        BoardSkinType GetBoardSkin() const { return currentBoardSkin; }
+        StoneSkinType GetStoneSkin() const { return currentStoneSkin; }
 
         void Draw(int sz); 
         void Draw(const std::vector<std::vector<Stone>>& grid);

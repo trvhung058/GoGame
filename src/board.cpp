@@ -13,59 +13,72 @@ Board::~Board() {
     UnloadAssets(); 
 }
 
-void Board::LoadAssetsDefault(const char *boardPath, const char *blackPath, const char *whitePath) {
-    texBoard = LoadTexture(boardPath);
-    texBlackStone = LoadTexture(blackPath);
-    texWhiteStone = LoadTexture(whitePath);
-    isLoaded = true;                                                                                                                                                                                            
+void Board::LoadAllAssets() {
+    if (isLoaded) return;
+
+    boardTextures.push_back(LoadTexture("assets/board/Board_800.png"));           // ClassicWood = 0
+    boardTextures.push_back(LoadTexture("assets/board/Hardwood_board_800.png"));  // Hardwood = 1
+    boardTextures.push_back(LoadTexture("assets/board/wood_800.png"));            // DarkWood = 2
+
+    blackStoneTextures.push_back(LoadTexture("assets/stone/b_70.png"));           // Classic = 0
+    whiteStoneTextures.push_back(LoadTexture("assets/stone/w_70.png"));
+
+    blackStoneTextures.push_back(LoadTexture("assets/stone/b_2_70.png"));         // FlatMinimal = 1
+    whiteStoneTextures.push_back(LoadTexture("assets/stone/w_2_70.png"));
+
+    isLoaded = true;
 }
 
 void Board::UnloadAssets() {
-    if (isLoaded) {
-        if (texBoard.id != 0) UnloadTexture(texBoard);
-        if (texBlackStone.id != 0) UnloadTexture(texBlackStone);
-        if (texWhiteStone.id != 0) UnloadTexture(texWhiteStone);
-        isLoaded = false;
+    if (!isLoaded) return;
+
+    for (auto& tex : boardTextures) {
+        if (tex.id != 0) UnloadTexture(tex);
     }
+    boardTextures.clear();
+
+    for (auto& tex : blackStoneTextures) {
+        if (tex.id != 0) UnloadTexture(tex);
+    }
+    blackStoneTextures.clear();
+
+    for (auto& tex : whiteStoneTextures) {
+        if (tex.id != 0) UnloadTexture(tex);
+    }
+    whiteStoneTextures.clear();
+
+    isLoaded = false;
 }
 
-void Board::SetBoardSkin(BoardSkinType skin) {
-    currentBoardSkin = skin;
-    const char* path = "assets/board/Board_800.png";
-    if (skin == BoardSkinType::Hardwood) {
-        path = "assets/board/Hardwood_board_800.png";
-    } else if (skin == BoardSkinType::DarkWood) {
-        path = "assets/board/wood_800.png";
+Texture2D Board::GetBoardTexture(BoardSkinType skin) const {
+    size_t idx = static_cast<size_t>(skin);
+    if (idx < boardTextures.size()) {
+        return boardTextures[idx];
     }
-
-    if (texBoard.id != 0) {
-        UnloadTexture(texBoard);
-    }
-    texBoard = LoadTexture(path);
+    return { 0 };
 }
 
-void Board::SetStoneSkin(StoneSkinType skin) {
-    currentStoneSkin = skin;
-    if (skin == StoneSkinType::PureSolid) {
-        return;
+Texture2D Board::GetBlackStoneTexture(StoneSkinType skin) const {
+    size_t idx = static_cast<size_t>(skin);
+    if (idx < blackStoneTextures.size()) {
+        return blackStoneTextures[idx];
     }
+    return { 0 };
+}
 
-    const char* bPath = "assets/stone/b_70.png";
-    const char* wPath = "assets/stone/w_70.png";
-    if (skin == StoneSkinType::FlatMinimal) {
-        bPath = "assets/stone/b_2_70.png";
-        wPath = "assets/stone/w_2_70.png";
+Texture2D Board::GetWhiteStoneTexture(StoneSkinType skin) const {
+    size_t idx = static_cast<size_t>(skin);
+    if (idx < whiteStoneTextures.size()) {
+        return whiteStoneTextures[idx];
     }
-
-    if (texBlackStone.id != 0) UnloadTexture(texBlackStone);
-    if (texWhiteStone.id != 0) UnloadTexture(texWhiteStone);
-
-    texBlackStone = LoadTexture(bPath);
-    texWhiteStone = LoadTexture(wPath);
+    return { 0 };
 }
 
 void Board::Draw(int sz) {
     if (!isLoaded) return;
+
+    Texture2D texBoard = GetBoardTexture(currentBoardSkin);
+    if (texBoard.id == 0) return;
 
     DrawTexture(texBoard, x, y, WHITE);
     cell_size = texBoard.height / static_cast<float>(sz + 1);
@@ -90,7 +103,7 @@ void Board::Draw(int sz) {
 }
 
 void Board::Draw(const std::vector<std::vector<Stone>>& grid) {
-    Draw(grid.size()); 
+    Draw(static_cast<int>(grid.size())); 
 
     if (!isLoaded) return;
 
@@ -120,7 +133,7 @@ void Board::DrawStone(int col, int row, Stone player) {
         float radius = (cell_size > 0) ? (cell_size * 0.46f) : 18.0f;
         if (player == Stone::Black) {
             DrawCircle(static_cast<int>(pixelPos.x), static_cast<int>(pixelPos.y), radius, Color{15, 15, 15, 255});
-            DrawCircleLines(static_cast<int>(pixelPos.x), static_cast<int>(pixelPos.y), radius, Color{60, 60, 60, 255});
+            DrawCircleLines(static_cast<int>(pixelPos.x), static_cast<int>(pixelPos.y), radius, Color{70, 70, 70, 255});
         } else if (player == Stone::White) {
             DrawCircle(static_cast<int>(pixelPos.x), static_cast<int>(pixelPos.y), radius, Color{245, 245, 245, 255});
             DrawCircleLines(static_cast<int>(pixelPos.x), static_cast<int>(pixelPos.y), radius, Color{180, 180, 180, 255});
@@ -128,16 +141,18 @@ void Board::DrawStone(int col, int row, Stone player) {
         return;
     }
 
-    float stoneHalfSize = texBlackStone.height / 2.0f;
+    Texture2D texBlackStone = GetBlackStoneTexture(currentStoneSkin);
+    Texture2D texWhiteStone = GetWhiteStoneTexture(currentStoneSkin);
+    float stoneHalfSize = (texBlackStone.id != 0) ? (texBlackStone.height / 2.0f) : 18.0f;
 
-    if (player == Stone::Black) {
+    if (player == Stone::Black && texBlackStone.id != 0) {
         DrawTexture(
             texBlackStone,
             static_cast<int>(pixelPos.x - stoneHalfSize),
             static_cast<int>(pixelPos.y - stoneHalfSize),
             WHITE
         );
-    } else if (player == Stone::White) {
+    } else if (player == Stone::White && texWhiteStone.id != 0) {
         DrawTexture(
             texWhiteStone,
             static_cast<int>(pixelPos.x - stoneHalfSize),

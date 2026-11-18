@@ -44,16 +44,7 @@ class Game {
         Button MediumButton;
         Button HardButton;
         Button BackFromDiffButton;
-
-        // Skins buttons
-        Button BoardSkin1Button;
-        Button BoardSkin2Button;
-        Button BoardSkin3Button;
-
-        Button StoneSkin1Button;
-        Button StoneSkin2Button;
-        Button StoneSkin3Button;
-
+        
         Button BackFromSkinButton;
 
         // Gameplay buttons

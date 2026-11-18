@@ -4,15 +4,15 @@
 #include "types.h"
 
 enum class BoardSkinType {
-    ClassicWood,
-    Hardwood,
-    DarkWood
+    ClassicWood = 0,
+    Hardwood = 1,
+    DarkWood = 2
 };
 
 enum class StoneSkinType {
-    Classic,
-    FlatMinimal,
-    PureSolid
+    Classic = 0,
+    FlatMinimal = 1,
+    PureSolid = 2
 };
 
 class Board {
@@ -22,9 +22,9 @@ class Board {
         float margin;
         float cell_size;
         
-        Texture2D texBoard;
-        Texture2D texBlackStone;
-        Texture2D texWhiteStone;
+        std::vector<Texture2D> boardTextures;
+        std::vector<Texture2D> blackStoneTextures;
+        std::vector<Texture2D> whiteStoneTextures;
         bool isLoaded = false; 
 
         BoardSkinType currentBoardSkin = BoardSkinType::ClassicWood;
@@ -37,14 +37,18 @@ class Board {
         Board(const Board&) = delete;
         Board& operator=(const Board&) = delete;
 
-        void LoadAssetsDefault(const char *boardPath, const char *blackPath, const char *whitePath);
+        void LoadAllAssets();
         void UnloadAssets();
         
-        void SetBoardSkin(BoardSkinType skin);
-        void SetStoneSkin(StoneSkinType skin);
+        void SetBoardSkin(BoardSkinType skin) { currentBoardSkin = skin; }
+        void SetStoneSkin(StoneSkinType skin) { currentStoneSkin = skin; }
 
         BoardSkinType GetBoardSkin() const { return currentBoardSkin; }
         StoneSkinType GetStoneSkin() const { return currentStoneSkin; }
+
+        Texture2D GetBoardTexture(BoardSkinType skin) const;
+        Texture2D GetBlackStoneTexture(StoneSkinType skin) const;
+        Texture2D GetWhiteStoneTexture(StoneSkinType skin) const;
 
         void Draw(int sz); 
         void Draw(const std::vector<std::vector<Stone>>& grid);

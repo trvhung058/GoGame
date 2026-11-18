@@ -127,7 +127,7 @@ Game::Game(){
     BackFromSkinButton.LoadAssets(btnUnhovered300, btnHovered300);
     BackFromSkinButton.LoadFonts(fontPath);
     BackFromSkinButton.SetText("Back");
-    BackFromSkinButton.SetPosition((screenWidth - texSize.first) / 2.0f, 850.0f);
+    BackFromSkinButton.SetPosition((screenWidth - texSize.first) / 2.0f, 800.0f);
 
     float col1X = 980.0f;
     float col2X = 1220.0f;
@@ -223,14 +223,17 @@ void Game::UpdateSelectSize() {
 
     if (Size9Button.IsClicked(mousePos)) {
         selectedBoardSize = 9;
+        board.SetBoardSize(9);
         currentScreen = MODE;
     }
     else if (Size13Button.IsClicked(mousePos)) {
         selectedBoardSize = 13;
+        board.SetBoardSize(13);
         currentScreen = MODE;
     }
     else if (Size19Button.IsClicked(mousePos)) {
         selectedBoardSize = 19;
+        board.SetBoardSize(19);
         currentScreen = MODE;
     }
     else if (BackFromSizeButton.IsClicked(mousePos)) {
@@ -324,32 +327,47 @@ void Game::DrawSelectDifficulty() {
 }
 
 // ======================= SKINS CUSTOMIZATION =======================
+struct BoardSkinOption {
+    BoardSkinType type;
+    const char* name;
+    Rectangle rect;
+};
+
+struct StoneSkinOption {
+    StoneSkinType type;
+    const char* name;
+    Vector2 center;
+    float radius;
+};
+
+static constexpr BoardSkinOption kBoardSkinOptions[3] = {
+    { BoardSkinType::ClassicWood, "Classic Wood", { 90.0f, 320.0f, 180.0f, 180.0f } },
+    { BoardSkinType::Hardwood,    "Hardwood",     { 310.0f, 320.0f, 180.0f, 180.0f } },
+    { BoardSkinType::DarkWood,    "Dark Wood",    { 530.0f, 320.0f, 180.0f, 180.0f } }
+};
+
+static constexpr StoneSkinOption kStoneSkinOptions[3] = {
+    { StoneSkinType::Classic,     "Classic 3D",   { 900.0f, 410.0f }, 75.0f },
+    { StoneSkinType::FlatMinimal, "Glossy Stone", { 1110.0f, 410.0f }, 75.0f },
+    { StoneSkinType::PureSolid,   "Pure Solid",   { 1320.0f, 410.0f }, 75.0f }
+};
+
 void Game::UpdateSkin() {
     Vector2 mousePos = GetMousePosition();
 
-    Rectangle boardCard1 = { 150.0f, 320.0f, 180.0f, 180.0f };
-    Rectangle boardCard2 = { 360.0f, 320.0f, 180.0f, 180.0f };
-    Rectangle boardCard3 = { 570.0f, 320.0f, 180.0f, 180.0f };
-
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-        if (CheckCollisionPointRec(mousePos, boardCard1)) {
-            board.SetBoardSkin(BoardSkinType::ClassicWood);
-        } else if (CheckCollisionPointRec(mousePos, boardCard2)) {
-            board.SetBoardSkin(BoardSkinType::Hardwood);
-        } else if (CheckCollisionPointRec(mousePos, boardCard3)) {
-            board.SetBoardSkin(BoardSkinType::DarkWood);
+        for (const auto& opt : kBoardSkinOptions) {
+            if (CheckCollisionPointRec(mousePos, opt.rect)) {
+                board.SetBoardSkin(opt.type);
+                break;
+            }
         }
 
-        Vector2 stoneCenter1 = { 920.0f, 410.0f };
-        Vector2 stoneCenter2 = { 1110.0f, 410.0f };
-        Vector2 stoneCenter3 = { 1300.0f, 410.0f };
-
-        if (CheckCollisionPointCircle(mousePos, stoneCenter1, 75.0f)) {
-            board.SetStoneSkin(StoneSkinType::Classic);
-        } else if (CheckCollisionPointCircle(mousePos, stoneCenter2, 75.0f)) {
-            board.SetStoneSkin(StoneSkinType::FlatMinimal);
-        } else if (CheckCollisionPointCircle(mousePos, stoneCenter3, 75.0f)) {
-            board.SetStoneSkin(StoneSkinType::PureSolid);
+        for (const auto& opt : kStoneSkinOptions) {
+            if (CheckCollisionPointCircle(mousePos, opt.center, opt.radius)) {
+                board.SetStoneSkin(opt.type);
+                break;
+            }
         }
     }
 
@@ -363,7 +381,7 @@ void Game::DrawSkin() {
     DrawPageTitle("Skins Customization");
 
     Vector2 tSize1 = MeasureTextEx(textFont, "Board Skins", 42.0f, 2.0f);
-    DrawTextEx(textFont, "Board Skins", {450.0f - tSize1.x / 2.0f, 230.0f}, 42.0f, 2.0f, GOLD);
+    DrawTextEx(textFont, "Board Skins", {400.0f - tSize1.x / 2.0f, 230.0f}, 42.0f, 2.0f, GOLD);
 
     Vector2 tSize2 = MeasureTextEx(textFont, "Stone Skins", 42.0f, 2.0f);
     DrawTextEx(textFont, "Stone Skins", {1110.0f - tSize2.x / 2.0f, 230.0f}, 42.0f, 2.0f, GOLD);
@@ -372,25 +390,14 @@ void Game::DrawSkin() {
 
     Vector2 mousePos = GetMousePosition();
 
-    struct BoardOption {
-        BoardSkinType type;
-        const char* name;
-        Rectangle rect;
-    };
-    BoardOption boardOptions[3] = {
-        { BoardSkinType::ClassicWood, "Classic Wood", { 150.0f, 320.0f, 180.0f, 180.0f } },
-        { BoardSkinType::Hardwood,    "Hardwood",     { 360.0f, 320.0f, 180.0f, 180.0f } },
-        { BoardSkinType::DarkWood,    "Dark Wood",    { 570.0f, 320.0f, 180.0f, 180.0f } }
-    };
-
-    for (int i = 0; i < 3; i++) {
-        Rectangle r = boardOptions[i].rect;
+    for (const auto& opt : kBoardSkinOptions) {
+        Rectangle r = opt.rect;
         bool isHovered = CheckCollisionPointRec(mousePos, r);
-        bool isSelected = (board.GetBoardSkin() == boardOptions[i].type);
+        bool isSelected = (board.GetBoardSkin() == opt.type);
 
         DrawRectangleRounded({ r.x + 3.0f, r.y + 3.0f, r.width, r.height }, 0.08f, 8, Fade(BLACK, 0.5f));
 
-        Texture2D tex = board.GetBoardTexture(boardOptions[i].type);
+        Texture2D tex = board.GetBoardTexture(opt.type);
         if (tex.id != 0) {
             Rectangle src = { 0.0f, 0.0f, static_cast<float>(tex.width), static_cast<float>(tex.height) };
             DrawTexturePro(tex, src, r, {0, 0}, 0.0f, WHITE);
@@ -411,38 +418,27 @@ void Game::DrawSkin() {
             DrawRectangleLinesEx(r, 2.0f, Fade(WHITE, 0.3f));
         }
 
-        Vector2 nameSize = MeasureTextEx(textFont, boardOptions[i].name, 26.0f, 2.0f);
-        DrawTextEx(textFont, boardOptions[i].name, { r.x + (r.width - nameSize.x) / 2.0f, r.y + r.height + 15.0f }, 26.0f, 2.0f, isSelected ? GREEN : RAYWHITE);
+        Vector2 nameSize = MeasureTextEx(textFont, opt.name, 26.0f, 2.0f);
+        DrawTextEx(textFont, opt.name, { r.x + (r.width - nameSize.x) / 2.0f, r.y + r.height + 15.0f }, 26.0f, 2.0f, isSelected ? GREEN : RAYWHITE);
     }
 
-    struct StoneOption {
-        StoneSkinType type;
-        const char* name;
-        Vector2 center;
-    };
-    StoneOption stoneOptions[3] = {
-        { StoneSkinType::Classic,     "Classic 3D",   { 920.0f, 410.0f } },
-        { StoneSkinType::FlatMinimal, "Glossy Stone", { 1110.0f, 410.0f } },
-        { StoneSkinType::PureSolid,   "Pure Solid",   { 1300.0f, 410.0f } }
-    };
-
-    for (int i = 0; i < 3; i++) {
-        Vector2 c = stoneOptions[i].center;
-        float radius = 75.0f;
+    for (const auto& opt : kStoneSkinOptions) {
+        Vector2 c = opt.center;
+        float radius = opt.radius;
         bool isHovered = CheckCollisionPointCircle(mousePos, c, radius);
-        bool isSelected = (board.GetStoneSkin() == stoneOptions[i].type);
+        bool isSelected = (board.GetStoneSkin() == opt.type);
 
         DrawCircle(c.x, c.y, radius, Fade(BLACK, 0.4f));
 
-        if (stoneOptions[i].type == StoneSkinType::PureSolid) {
+        if (opt.type == StoneSkinType::PureSolid) {
             DrawCircle(c.x - 24.0f, c.y, 34.0f, Color{15, 15, 15, 255});
             DrawCircleLines(c.x - 24.0f, c.y, 34.0f, Color{70, 70, 70, 255});
 
             DrawCircle(c.x + 24.0f, c.y, 34.0f, Color{245, 245, 245, 255});
             DrawCircleLines(c.x + 24.0f, c.y, 34.0f, Color{180, 180, 180, 255});
         } else {
-            Texture2D bTex = board.GetBlackStoneTexture(stoneOptions[i].type);
-            Texture2D wTex = board.GetWhiteStoneTexture(stoneOptions[i].type);
+            Texture2D bTex = board.GetBlackStoneTexture(opt.type, 9);
+            Texture2D wTex = board.GetWhiteStoneTexture(opt.type, 9);
 
             if (bTex.id != 0) {
                 DrawTexturePro(bTex, { 0, 0, (float)bTex.width, (float)bTex.height }, { c.x - 56.0f, c.y - 34.0f, 68.0f, 68.0f }, {0, 0}, 0.0f, WHITE);
@@ -453,9 +449,9 @@ void Game::DrawSkin() {
         }
 
         if (isSelected) {
+            DrawCircleLines(c.x, c.y, radius + 7.0f, GREEN);
             DrawCircleLines(c.x, c.y, radius + 8.0f, GREEN);
             DrawCircleLines(c.x, c.y, radius + 9.0f, GREEN);
-            DrawCircleLines(c.x, c.y, radius + 10.0f, GREEN);
             DrawCircleLines(c.x, c.y, radius, WHITE);
         } else if (isHovered) {
             DrawCircleLines(c.x, c.y, radius + 5.0f, Fade(YELLOW, 0.7f));
@@ -464,8 +460,8 @@ void Game::DrawSkin() {
             DrawCircleLines(c.x, c.y, radius, Fade(WHITE, 0.3f));
         }
 
-        Vector2 nameSize = MeasureTextEx(textFont, stoneOptions[i].name, 26.0f, 2.0f);
-        DrawTextEx(textFont, stoneOptions[i].name, { c.x - nameSize.x / 2.0f, c.y + radius + 25.0f }, 26.0f, 2.0f, isSelected ? GREEN : RAYWHITE);
+        Vector2 nameSize = MeasureTextEx(textFont, opt.name, 26.0f, 2.0f);
+        DrawTextEx(textFont, opt.name, { c.x - nameSize.x / 2.0f, c.y + radius + 25.0f }, 26.0f, 2.0f, isSelected ? GREEN : RAYWHITE);
     }
 
     BackFromSkinButton.Draw();
@@ -575,7 +571,8 @@ void Game::DrawGameplay() {
         Point cell = board.GetCellIndex(GetMousePosition(), boardSize);
         if (cell.col != std::numeric_limits<std::size_t>::max() &&
             cell.row != std::numeric_limits<std::size_t>::max() &&
-            session.currentState.board[cell.col][cell.row] == Stone::Empty) {
+            session.currentState.board[cell.col][cell.row] == Stone::Empty &&
+            isLegalMove(session, cell)) {
             board.DrawGhostStone(cell, session.currentState.sideToMove);
         }
     }

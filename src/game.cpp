@@ -11,7 +11,7 @@ Game::Game(){
     createInitialState(session.currentState, 19);
     initializePositionHistory(session);
 
-    board.LoadAssetsDefault("assets/board/Board_800.png", "assets/b_40.png", "assets/w_40.png");
+    board.LoadAssetsDefault("assets/board/Board_800.png", "assets/b_70.png", "assets/w_70.png");
     background.LoadAssets("assets/go-jeu_blur.jpg");
     background.SetPosition(0, 0);
 
@@ -218,14 +218,20 @@ void Game::UpdateSelectSize() {
     if (Size9Button.IsClicked(mousePos)) {
         selectedBoardSize = 9;
         currentScreen = MODE;
+        board.LoadAssetsBlackStone("assets/b_70.png");
+        board.LoadAssetsWhiteStone("assets/w_70.png");
     }
     else if (Size13Button.IsClicked(mousePos)) {
         selectedBoardSize = 13;
         currentScreen = MODE;
+        board.LoadAssetsBlackStone("assets/b_50.png");
+        board.LoadAssetsWhiteStone("assets/w_50.png");
     }
     else if (Size19Button.IsClicked(mousePos)) {
         selectedBoardSize = 19;
         currentScreen = MODE;
+        board.LoadAssetsBlackStone("assets/b_40.png");
+        board.LoadAssetsWhiteStone("assets/w_40.png");
     }
     else if (BackFromSizeButton.IsClicked(mousePos)) {
         currentScreen = MENU;

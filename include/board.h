@@ -24,6 +24,8 @@ class Board {
 
         void LoadAssetsDefault(const char *boardPath, const char *blackPath, const char *whitePath);
         void UnloadAssets();
+        void LoadAssetsBlackStone(const char *path);
+        void LoadAssetsWhiteStone(const char *path);
 
         void Draw(int sz); 
         void Draw(const std::vector<std::vector<Stone>>& grid);

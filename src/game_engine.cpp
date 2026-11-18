@@ -17,6 +17,7 @@ void createInitialState(SessionSnapshot& state, int boardSize) {
     state.phase = GamePhase::Playing;
     state.blackAcceptedScore = false;
     state.whiteAcceptedScore = false;
+    state.lastMove = { true, {0, 0} };
     state.territoryProposal = std::vector<std::vector<TerritoryOwner>>(boardSize, std::vector<TerritoryOwner>(boardSize, TerritoryOwner::Unresolved));
     state.deadStones = std::vector<std::vector<bool>>(boardSize, std::vector<bool>(boardSize, false));
 }

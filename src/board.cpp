@@ -29,6 +29,14 @@ void Board::UnloadAssets() {
     }
 }
 
+void Board::LoadAssetsBlackStone(const char *path) {
+    texBlackStone = LoadTexture(path);
+}
+
+void Board::LoadAssetsWhiteStone(const char *path) {
+    texWhiteStone = LoadTexture(path);
+}
+
 void Board::Draw(int sz) {
     if (!isLoaded) return;
 
@@ -128,7 +136,7 @@ void Board::DrawLastPlayed(int col, int row, Stone player) {
 
     Vector2 pixelPos = GetPixelPosition(col, row);
     Color markerColor = (player == Stone::Black) ? WHITE : BLACK;
-    float markerSize = 14.0f;
+    float markerSize = texBlackStone.width / 3.0f;
 
     DrawRectangle(
         static_cast<int>(pixelPos.x - markerSize / 2.0f),

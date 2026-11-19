@@ -350,11 +350,37 @@ DeadStoneMap generateDeadStoneProposal(const SessionSnapshot& state) {
             }
 
             std::vector<Point> liberties = findLiberties(state, group);
+            Stone groupColor = state.board[group[0].col][group[0].row];
+            Stone opponentColor = (groupColor == Stone::Black) ? Stone::White : Stone::Black;
+            TerritoryOwner opponentOwner = (opponentColor == Stone::Black)
+                ? TerritoryOwner::Black
+                : TerritoryOwner::White;
+
+            SessionSnapshot enclosureState = state;
+            for (size_t col = 0; col < state.board.size(); ++col) {
+                enclosureState.deadStones[col].assign(state.board[col].size(), false);
+            }
+            for (const Point& stone : group) {
+                enclosureState.deadStones[stone.col][stone.row] = true;
+            }
+
+            TerritoryMap territory = generateTerritoryProposal(enclosureState);
+            bool isEnclosedByOpponent = true;
+            for (const Point& stone : group) {
+                if (territory[stone.col][stone.row] != opponentOwner) {
+                    isEnclosedByOpponent = false;
+                    break;
+                }
+            }
+            if (!isEnclosedByOpponent) {
+                continue;
+            }
+
             if (liberties.size() == 1) {
                 Point libertyPoint = liberties.front();
                 SessionSnapshot tempState = state;
                 tempState.phase = GamePhase::Playing; // Ensure the phase is set to Playing for tryPlayStone
-                tempState.sideToMove = (state.board[group[0].col][group[0].row] == Stone::Black) ? Stone::White : Stone::Black;
+                tempState.sideToMove = opponentColor;
                 if (tryPlayStone(tempState, libertyPoint)) {
                     bool allCaptured = true;
                     for (const Point& stone : group) {
@@ -366,6 +392,64 @@ DeadStoneMap generateDeadStoneProposal(const SessionSnapshot& state) {
                     if (allCaptured) {
                         for (const Point& point : group) {
                             deadStoneProposal[point.col][point.row] = true;
+                        }
+                    }
+                }
+            } else if (liberties.size() == 2) {
+                Stone groupColor = state.board[group[0].col][group[0].row];
+                Stone opponentColor = (groupColor == Stone::Black) ? Stone::White : Stone::Black;
+
+                for (const Point& libertyPoint : liberties) {
+                    SessionSnapshot opponentMove = state;
+                    opponentMove.phase = GamePhase::Playing;
+                    opponentMove.sideToMove = opponentColor;
+
+                    if (!tryPlayStone(opponentMove, libertyPoint)) {
+                        continue;
+                    }
+
+                    std::vector<Point> remainingGroup;
+                    for (const Point& stone : group) {
+                        if (opponentMove.board[stone.col][stone.row] == groupColor) {
+                            remainingGroup = findGroup(opponentMove, stone);
+                            break;
+                        }
+                    }
+                    if (remainingGroup.empty()) {
+                        continue;
+                    }
+
+                    std::vector<Point> remainingLiberties = findLiberties(opponentMove, remainingGroup);
+                    if (remainingLiberties.size() != 1) {
+                        continue;
+                    }
+
+                    Point lastLiberty = remainingLiberties.front();
+
+                    SessionSnapshot groupResponse = opponentMove;
+                    groupResponse.phase = GamePhase::Playing;
+                    groupResponse.sideToMove = groupColor;
+                    if (tryPlayStone(groupResponse, lastLiberty)) {
+                        continue;
+                    }
+
+                    SessionSnapshot opponentCapture = opponentMove;
+                    opponentCapture.phase = GamePhase::Playing;
+                    opponentCapture.sideToMove = opponentColor;
+                    if (!tryPlayStone(opponentCapture, lastLiberty)) {
+                        continue;
+                    }
+
+                    bool allOriginalStonesGone = true;
+                    for (const Point& stone : group) {
+                        if (opponentCapture.board[stone.col][stone.row] != Stone::Empty) {
+                            allOriginalStonesGone = false;
+                            break;
+                        }
+                    }
+                    if (allOriginalStonesGone) {
+                        for (const Point& stone : group) {
+                            deadStoneProposal[stone.col][stone.row] = true;
                         }
                     }
                 }

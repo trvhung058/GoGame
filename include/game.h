@@ -44,6 +44,8 @@ class Game {
         Button MediumButton;
         Button HardButton;
         Button BackFromDiffButton;
+        
+        Button BackFromSkinButton;
 
         // Gameplay buttons
         Button PassButton;
@@ -79,6 +81,9 @@ class Game {
 
         void UpdateSelectDifficulty();
         void DrawSelectDifficulty();
+
+        void UpdateSkin();
+        void DrawSkin();
 
         void UpdateGameplay();
         void DrawGameplay();

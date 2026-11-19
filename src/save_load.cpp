@@ -450,7 +450,7 @@ namespace {
     }
 
     json gameSessionToJson(const GameSession& session) {
-        if (session.currentState.phase != GamePhase::Playing && session.currentState.phase != GamePhase::Finished) {
+        if (session.currentState.phase != GamePhase::Playing && session.currentState.phase != GamePhase::Finished && session.currentState.phase != GamePhase::Scoring) {
             throw std::invalid_argument("Invalid game phase in currentState of GameSession");
         }
         validateSnapshotPositionHistory(session.currentState, session.positionHistory);

@@ -141,7 +141,6 @@ namespace {
         tempSession.currentState = state;
         tempSession.positionHistory = positionHistory;
         
-        // The moveScores vector will hold tuples of move positions and their corresponding evaluation scores and whether shouldWarnAboutPointlessMove returns true or false for that move.
         std::vector<std::tuple<Point, int, bool>> moveScores;
         for (std::size_t col = 0; col < state.board.size(); ++col) {
             for (std::size_t row = 0; row < state.board[col].size(); ++row) {
@@ -180,15 +179,30 @@ namespace {
             return {}; // Return empty if time limit exceeded
         }
 
-        // Shuffle moveScores to ensure randomness among moves with the same score
         static std::mt19937 rng(std::random_device{}());
-        std::shuffle(moveScores.begin(), moveScores.end(), rng);
-
-        std::stable_sort(moveScores.begin(), moveScores.end(), [maximizingPlayer](const auto& a, const auto& b) {
-            if (std::get<1>(a) != std::get<1>(b)) {
-                return maximizingPlayer ? std::get<1>(a) > std::get<1>(b) : std::get<1>(a) < std::get<1>(b);
+        std::vector<std::tuple<Point, int, bool>> unflaggedMoves;
+        std::vector<std::tuple<Point, int, bool>> warnedMoves;
+        unflaggedMoves.reserve(moveScores.size());
+        warnedMoves.reserve(moveScores.size());
+        for (const auto& moveScore : moveScores) {
+            if (std::get<2>(moveScore)) {
+                warnedMoves.push_back(moveScore);
+            } else {
+                unflaggedMoves.push_back(moveScore);
             }
-            return !std::get<2>(a) && std::get<2>(b); // Prefer moves that do not trigger warnings
+        }
+
+        std::shuffle(unflaggedMoves.begin(), unflaggedMoves.end(), rng);
+        std::shuffle(warnedMoves.begin(), warnedMoves.end(), rng);
+        std::stable_sort(unflaggedMoves.begin(), unflaggedMoves.end(), [maximizingPlayer](const auto& a, const auto& b) {
+            return maximizingPlayer
+                ? std::get<1>(a) > std::get<1>(b)
+                : std::get<1>(a) < std::get<1>(b);
+        });
+        std::stable_sort(warnedMoves.begin(), warnedMoves.end(), [maximizingPlayer](const auto& a, const auto& b) {
+            return maximizingPlayer
+                ? std::get<1>(a) > std::get<1>(b)
+                : std::get<1>(a) < std::get<1>(b);
         });
 
         if (deadline && std::chrono::steady_clock::now() >= *deadline) {
@@ -199,9 +213,9 @@ namespace {
         }
 
         std::vector<Move> candidates;
-
-        for (std::size_t i = 0; i < std::min(moveScores.size(), static_cast<std::size_t>(12)); ++i) {
-            candidates.push_back({false, std::get<0>(moveScores[i])});
+        const auto& selectedPool = unflaggedMoves.empty() ? warnedMoves : unflaggedMoves;
+        for (std::size_t i = 0; i < std::min(selectedPool.size(), static_cast<std::size_t>(12)); ++i) {
+            candidates.push_back({false, std::get<0>(selectedPool[i])});
         }
 
         SessionSnapshot passState = state;

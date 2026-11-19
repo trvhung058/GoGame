@@ -329,8 +329,39 @@ DeadStoneMap generateDeadStoneProposal(const SessionSnapshot& state) {
 
             int liberties = countLiberties(state, group);
             if (liberties == 1) {
-                for (const Point& point : group) {
-                    deadStoneProposal[point.col][point.row] = true;
+                // For a one-liberty group, find its remaining liberty point.
+                Point libertyPoint = { 0, 0 };
+                bool foundLiberty = false;
+                for (const Point& stone : group) {
+                    const int dx[] = { -1, 1, 0, 0 };
+                    const int dy[] = { 0, 0, -1, 1 };
+                    for (int i = 0; i < 4; ++i) {
+                        size_t newCol = stone.col + dx[i];
+                        size_t newRow = stone.row + dy[i];
+                        if (isOnBoard(newCol, newRow, state.board.size()) && state.board[newCol][newRow] == Stone::Empty) {
+                            libertyPoint = { newCol, newRow };
+                            foundLiberty = true;
+                            break;
+                        }
+                    }
+                }
+                SessionSnapshot tempState = state;
+                tempState.phase = GamePhase::Playing; // Ensure the phase is set to Playing for tryPlayStone
+                tempState.sideToMove = (state.board[group[0].col][group[0].row] == Stone::Black) ? Stone::White : Stone::Black;
+                if (foundLiberty && tryPlayStone(tempState, libertyPoint)) {
+                    // Check if every stone in the group is removed in the next state, indicating that the group is captured.
+                    bool allCaptured = true;
+                    for (const Point& stone : group) {
+                        if (tempState.board[stone.col][stone.row] != Stone::Empty) {
+                            allCaptured = false;
+                            break;
+                        }
+                    }
+                    if (allCaptured) {
+                        for (const Point& point : group) {
+                            deadStoneProposal[point.col][point.row] = true;
+                        }
+                    }
                 }
             }
         }

@@ -23,3 +23,4 @@ void initializePositionHistory(GameSession& session);
 TerritoryMap estimateTerritoryForWarning(const SessionSnapshot& state);
 bool shouldWarnAboutPointlessMove(const GameSession& session, Point position);
 DeadStoneMap generateDeadStoneProposal(const SessionSnapshot& state);
+std::vector<Point> findLiberties(const SessionSnapshot& state, const std::vector<Point>& group);

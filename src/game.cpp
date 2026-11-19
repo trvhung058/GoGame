@@ -405,8 +405,8 @@ void Game::DrawSkin() {
 
         float step = r.width / 5.0f;
         for (int line = 1; line < 5; line++) {
-            DrawLine(r.x + line * step, r.y + step, r.x + line * step, r.y + r.height - step, Fade(BLACK, 0.5f));
-            DrawLine(r.x + step, r.y + line * step, r.x + r.width - step, r.y + line * step, Fade(BLACK, 0.5f));
+            DrawLineV({ r.x + line * step, r.y + step }, { r.x + line * step, r.y + r.height - step }, Fade(BLACK, 0.5f));
+            DrawLineV({ r.x + step, r.y + line * step }, { r.x + r.width - step, r.y + line * step }, Fade(BLACK, 0.5f));
         }
 
         if (isSelected) {
@@ -428,14 +428,14 @@ void Game::DrawSkin() {
         bool isHovered = CheckCollisionPointCircle(mousePos, c, radius);
         bool isSelected = (board.GetStoneSkin() == opt.type);
 
-        DrawCircle(c.x, c.y, radius, Fade(BLACK, 0.4f));
+        DrawCircleV(c, radius, Fade(BLACK, 0.4f));
 
         if (opt.type == StoneSkinType::PureSolid) {
-            DrawCircle(c.x - 24.0f, c.y, 34.0f, Color{15, 15, 15, 255});
-            DrawCircleLines(c.x - 24.0f, c.y, 34.0f, Color{70, 70, 70, 255});
+            DrawCircleV({ c.x - 24.0f, c.y }, 34.0f, Color{15, 15, 15, 255});
+            DrawCircleLinesV({ c.x - 24.0f, c.y }, 34.0f, Color{70, 70, 70, 255});
 
-            DrawCircle(c.x + 24.0f, c.y, 34.0f, Color{245, 245, 245, 255});
-            DrawCircleLines(c.x + 24.0f, c.y, 34.0f, Color{180, 180, 180, 255});
+            DrawCircleV({ c.x + 24.0f, c.y }, 34.0f, Color{245, 245, 245, 255});
+            DrawCircleLinesV({ c.x + 24.0f, c.y }, 34.0f, Color{180, 180, 180, 255});
         } else {
             Texture2D bTex = board.GetBlackStoneTexture(opt.type, 9);
             Texture2D wTex = board.GetWhiteStoneTexture(opt.type, 9);
@@ -449,15 +449,15 @@ void Game::DrawSkin() {
         }
 
         if (isSelected) {
-            DrawCircleLines(c.x, c.y, radius + 7.0f, GREEN);
-            DrawCircleLines(c.x, c.y, radius + 8.0f, GREEN);
-            DrawCircleLines(c.x, c.y, radius + 9.0f, GREEN);
-            DrawCircleLines(c.x, c.y, radius, WHITE);
+            DrawCircleLinesV(c, radius + 7.0f, GREEN);
+            DrawCircleLinesV(c, radius + 8.0f, GREEN);
+            DrawCircleLinesV(c, radius + 9.0f, GREEN);
+            DrawCircleLinesV(c, radius, WHITE);
         } else if (isHovered) {
-            DrawCircleLines(c.x, c.y, radius + 5.0f, Fade(YELLOW, 0.7f));
-            DrawCircleLines(c.x, c.y, radius + 6.0f, Fade(YELLOW, 0.7f));
+            DrawCircleLinesV(c, radius + 5.0f, Fade(YELLOW, 0.7f));
+            DrawCircleLinesV(c, radius + 6.0f, Fade(YELLOW, 0.7f));
         } else {
-            DrawCircleLines(c.x, c.y, radius, Fade(WHITE, 0.3f));
+            DrawCircleLinesV(c, radius, Fade(WHITE, 0.3f));
         }
 
         Vector2 nameSize = MeasureTextEx(textFont, opt.name, 26.0f, 2.0f);

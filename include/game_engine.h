@@ -22,3 +22,4 @@ bool toggleDeadGroups(SessionSnapshot& state, Point position);
 void initializePositionHistory(GameSession& session);
 TerritoryMap estimateTerritoryForWarning(const SessionSnapshot& state);
 bool shouldWarnAboutPointlessMove(const GameSession& session, Point position);
+DeadStoneMap generateDeadStoneProposal(const SessionSnapshot& state);

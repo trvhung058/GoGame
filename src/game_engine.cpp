@@ -205,6 +205,7 @@ bool tryPass(SessionSnapshot& state) {
         temp.phase = GamePhase::Scoring;
         temp.blackAcceptedScore = false;
         temp.whiteAcceptedScore = false;
+        temp.deadStones = generateDeadStoneProposal(temp);
         temp.territoryProposal = generateTerritoryProposal(temp);
     }
 
@@ -305,6 +306,37 @@ Score calculateAreaScore(const SessionSnapshot& state, double komi) {
     }
 
     return score;
+}
+
+DeadStoneMap generateDeadStoneProposal(const SessionSnapshot& state) {
+    DeadStoneMap deadStoneProposal;
+    deadStoneProposal.reserve(state.board.size());
+    for (const auto& column : state.board) {
+        deadStoneProposal.emplace_back(column.size(), false);
+    }
+
+    std::vector<std::vector<bool>> visited(state.board.size(), std::vector<bool>(state.board.size(), false));
+    for (size_t col = 0; col < state.board.size(); ++col) {
+        for (size_t row = 0; row < state.board[col].size(); ++row) {
+            if (state.board[col][row] == Stone::Empty || visited[col][row]) {
+                continue;
+            }
+
+            std::vector<Point> group = findGroup(state, { col, row });
+            for (const Point& point : group) {
+                visited[point.col][point.row] = true;
+            }
+
+            int liberties = countLiberties(state, group);
+            if (liberties == 1) {
+                for (const Point& point : group) {
+                    deadStoneProposal[point.col][point.row] = true;
+                }
+            }
+        }
+    }
+
+    return deadStoneProposal;
 }
 
 TerritoryMap generateTerritoryProposal(const SessionSnapshot& state) {
@@ -538,7 +570,11 @@ bool reviewScore(SessionSnapshot& state, Stone player, bool accepts) {
     if (state.phase != GamePhase::Scoring) {
         return false;
     }
-    if ((player == Stone::Black || player == Stone::White) && !accepts) {
+
+    if (player != Stone::Black && player != Stone::White) {
+        return false;
+    }
+    if (!accepts) {
         state.phase = GamePhase::Playing;
         state.consecutivePasses = 0;
         state.blackAcceptedScore = false;
@@ -548,18 +584,9 @@ bool reviewScore(SessionSnapshot& state, Stone player, bool accepts) {
         return true;
     }
 
-    if (player == Stone::Black) {
-        state.blackAcceptedScore = accepts;
-    } else if (player == Stone::White) {
-        state.whiteAcceptedScore = accepts;
-    } else {
-        return false;
-    }
-
-    if (state.blackAcceptedScore && state.whiteAcceptedScore) {
-        state.phase = GamePhase::Finished;
-    }
-
+    state.blackAcceptedScore = true;
+    state.whiteAcceptedScore = true;
+    state.phase = GamePhase::Finished;
     return true;
 }
 

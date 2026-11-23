@@ -1,5 +1,6 @@
 #include "game.h"
 #include <cmath>
+#include <exception>
 #include <limits>
 #include <string>
 #include <sstream>
@@ -488,7 +489,11 @@ void Game::HandleAITurn() {
         } else if (aiDifficulty == AIDifficulty::Hard) {
             aiMove = chooseHardMove(session.currentState, Stone::White, session.positionHistory);
         }
+    } catch (const std::exception& exception) {
+        TraceLog(LOG_ERROR, "AI move selection failed: %s", exception.what());
+        aiMove = { true, {0, 0} };
     } catch (...) {
+        TraceLog(LOG_ERROR, "AI move selection failed with an unknown exception.");
         aiMove = { true, {0, 0} };
     }
 
@@ -620,9 +625,9 @@ void Game::DrawGameplay() {
             scoringState.territoryProposal = generateTerritoryProposal(scoringState);
         }
 
-        Score score{0.0, 6.5};
+        Score score{0.0, kKomi};
         try {
-            score = calculateAreaScore(scoringState, 6.5);
+            score = calculateAreaScore(scoringState, kKomi);
         } catch (...) {
         }
 
@@ -633,7 +638,7 @@ void Game::DrawGameplay() {
         DrawTextEx(textFont, "FINAL SCORE", {1080.0f, 190.0f}, 30.0f, 2.0f, GOLD);
 
         std::string blackScoreStr = "Black: " + ssB.str() + " pts";
-        std::string whiteScoreStr = "White: " + ssW.str() + " pts (Komi 6.5)";
+        std::string whiteScoreStr = "White: " + ssW.str() + " pts (Komi 7.5)";
         DrawTextEx(textFont, blackScoreStr.c_str(), {990.0f, 245.0f}, 26.0f, 2.0f, RAYWHITE);
         DrawTextEx(textFont, whiteScoreStr.c_str(), {990.0f, 290.0f}, 26.0f, 2.0f, RAYWHITE);
 

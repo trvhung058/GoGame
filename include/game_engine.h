@@ -4,6 +4,8 @@
 #include <cstddef>
 #include "types.h"
 
+inline constexpr double kKomi = 7.5; // Standard komi value for Go
+
 bool isOnBoard(std::size_t col, std::size_t row, std::size_t size);
 std::vector<Point> findGroup(const SessionSnapshot& state, Point start);
 int countLiberties(const SessionSnapshot& state, const std::vector<Point>& group);

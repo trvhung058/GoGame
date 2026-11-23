@@ -1,5 +1,6 @@
 #include "game_engine.h"
 
+#include <algorithm>
 #include <vector>
 #include <stdexcept>
 #include <utility>
@@ -337,6 +338,11 @@ DeadStoneMap generateDeadStoneProposal(const SessionSnapshot& state) {
         deadStoneProposal.emplace_back(column.size(), false);
     }
 
+    struct CandidateGroup {
+        std::vector<Point> stones;
+        Stone color;
+    };
+    std::vector<CandidateGroup> candidateGroups;
     std::vector<std::vector<bool>> visited(state.board.size(), std::vector<bool>(state.board.size(), false));
     for (size_t col = 0; col < state.board.size(); ++col) {
         for (size_t row = 0; row < state.board[col].size(); ++row) {
@@ -352,30 +358,8 @@ DeadStoneMap generateDeadStoneProposal(const SessionSnapshot& state) {
             std::vector<Point> liberties = findLiberties(state, group);
             Stone groupColor = state.board[group[0].col][group[0].row];
             Stone opponentColor = (groupColor == Stone::Black) ? Stone::White : Stone::Black;
-            TerritoryOwner opponentOwner = (opponentColor == Stone::Black)
-                ? TerritoryOwner::Black
-                : TerritoryOwner::White;
 
-            SessionSnapshot enclosureState = state;
-            for (size_t col = 0; col < state.board.size(); ++col) {
-                enclosureState.deadStones[col].assign(state.board[col].size(), false);
-            }
-            for (const Point& stone : group) {
-                enclosureState.deadStones[stone.col][stone.row] = true;
-            }
-
-            TerritoryMap territory = generateTerritoryProposal(enclosureState);
-            bool isEnclosedByOpponent = true;
-            for (const Point& stone : group) {
-                if (territory[stone.col][stone.row] != opponentOwner) {
-                    isEnclosedByOpponent = false;
-                    break;
-                }
-            }
-            if (!isEnclosedByOpponent) {
-                continue;
-            }
-
+            bool canCapture = false;
             if (liberties.size() == 1) {
                 Point libertyPoint = liberties.front();
                 SessionSnapshot tempState = state;
@@ -389,16 +373,9 @@ DeadStoneMap generateDeadStoneProposal(const SessionSnapshot& state) {
                             break;
                         }
                     }
-                    if (allCaptured) {
-                        for (const Point& point : group) {
-                            deadStoneProposal[point.col][point.row] = true;
-                        }
-                    }
+                    canCapture = allCaptured;
                 }
             } else if (liberties.size() == 2) {
-                Stone groupColor = state.board[group[0].col][group[0].row];
-                Stone opponentColor = (groupColor == Stone::Black) ? Stone::White : Stone::Black;
-
                 for (const Point& libertyPoint : liberties) {
                     SessionSnapshot opponentMove = state;
                     opponentMove.phase = GamePhase::Playing;
@@ -448,12 +425,56 @@ DeadStoneMap generateDeadStoneProposal(const SessionSnapshot& state) {
                         }
                     }
                     if (allOriginalStonesGone) {
-                        for (const Point& stone : group) {
-                            deadStoneProposal[stone.col][stone.row] = true;
-                        }
+                        canCapture = true;
+                        break;
                     }
                 }
             }
+            if (canCapture) {
+                candidateGroups.push_back({std::move(group), groupColor});
+            }
+        }
+    }
+
+    while (!candidateGroups.empty()) {
+        SessionSnapshot enclosureState = state;
+        for (size_t col = 0; col < state.board.size(); ++col) {
+            enclosureState.deadStones[col].assign(state.board[col].size(), false);
+        }
+        for (const CandidateGroup& candidate : candidateGroups) {
+            for (const Point& stone : candidate.stones) {
+                enclosureState.deadStones[stone.col][stone.row] = true;
+            }
+        }
+
+        TerritoryMap territory = generateTerritoryProposal(enclosureState);
+        std::vector<CandidateGroup> enclosedGroups;
+        enclosedGroups.reserve(candidateGroups.size());
+        for (const CandidateGroup& candidate : candidateGroups) {
+            const Stone opponentColor = candidate.color == Stone::Black ? Stone::White : Stone::Black;
+            const TerritoryOwner opponentOwner = opponentColor == Stone::Black
+                ? TerritoryOwner::Black
+                : TerritoryOwner::White;
+            const bool isEnclosedByOpponent = std::all_of(
+                candidate.stones.begin(),
+                candidate.stones.end(),
+                [&territory, opponentOwner](const Point& stone) {
+                    return territory[stone.col][stone.row] == opponentOwner;
+                });
+            if (isEnclosedByOpponent) {
+                enclosedGroups.push_back(candidate);
+            }
+        }
+
+        if (enclosedGroups.size() == candidateGroups.size()) {
+            break;
+        }
+        candidateGroups = std::move(enclosedGroups);
+    }
+
+    for (const CandidateGroup& candidate : candidateGroups) {
+        for (const Point& stone : candidate.stones) {
+            deadStoneProposal[stone.col][stone.row] = true;
         }
     }
 
@@ -562,7 +583,6 @@ TerritoryMap estimateTerritoryForWarning(const SessionSnapshot& state) {
 
             bool touchesBlack = false;
             bool touchesWhite = false;
-            bool touchesEdge = false;
             std::vector<Point> region;
             std::vector<Point> stack = { { col, row } };
             visited[col][row] = true;
@@ -575,7 +595,6 @@ TerritoryMap estimateTerritoryForWarning(const SessionSnapshot& state) {
                 auto visitNeighbor = [&](size_t nextCol, size_t nextRow) {
                     if (nextCol >= state.board.size() ||
                         nextRow >= state.board[nextCol].size()) {
-                        touchesEdge = true;
                         return;
                     }
 
@@ -590,27 +609,19 @@ TerritoryMap estimateTerritoryForWarning(const SessionSnapshot& state) {
                     }
                 };
 
-                if (current.col == 0) {
-                    touchesEdge = true;
-                } else {
+                if (current.col != 0) {
                     visitNeighbor(current.col - 1, current.row);
                 }
 
-                if (current.col + 1 >= state.board.size()) {
-                    touchesEdge = true;
-                } else {
+                if (current.col + 1 < state.board.size()) {
                     visitNeighbor(current.col + 1, current.row);
                 }
 
-                if (current.row == 0) {
-                    touchesEdge = true;
-                } else {
+                if (current.row != 0) {
                     visitNeighbor(current.col, current.row - 1);
                 }
 
-                if (current.row + 1 >= state.board[current.col].size()) {
-                    touchesEdge = true;
-                } else {
+                if (current.row + 1 < state.board[current.col].size()) {
                     visitNeighbor(current.col, current.row + 1);
                 }
             }
@@ -618,10 +629,12 @@ TerritoryMap estimateTerritoryForWarning(const SessionSnapshot& state) {
             TerritoryOwner owner = TerritoryOwner::Unresolved;
             if (touchesBlack && touchesWhite) {
                 owner = TerritoryOwner::Neutral;
-            } else if (!touchesEdge && touchesBlack) {
+            } else if (touchesBlack) {
                 owner = TerritoryOwner::Black;
-            } else if (!touchesEdge && touchesWhite) {
+            } else if (touchesWhite) {
                 owner = TerritoryOwner::White;
+            } else {
+                owner = TerritoryOwner::Neutral;
             }
 
             for (const Point& point : region) {

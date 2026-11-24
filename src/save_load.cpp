@@ -513,7 +513,9 @@ namespace {
         GameSession result{};
         result.mode = mode;
         result.currentState = sessionSnapshotFromJson(value.at("currentState"), formatVersion);
-        if (result.currentState.phase != GamePhase::Playing && result.currentState.phase != GamePhase::Finished) {
+        if (result.currentState.phase != GamePhase::Playing &&
+            result.currentState.phase != GamePhase::Scoring &&
+            result.currentState.phase != GamePhase::Finished) {
             throw std::invalid_argument("Invalid game phase in currentState of GameSession");
         }
 

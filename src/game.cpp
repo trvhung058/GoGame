@@ -9,8 +9,14 @@
 #include "ai.h"
 
 Game::Game(){
-    createInitialState(session.currentState, 19);
-    initializePositionHistory(session);
+    bool hasSavedGame = loadGame("savegame.json", session);
+    if (!hasSavedGame) {
+        createInitialState(session.currentState, 19);
+        initializePositionHistory(session);
+    }
+
+    selectedBoardSize = static_cast<int>(session.currentState.board.size());
+    board.SetBoardSize(selectedBoardSize);
 
     board.LoadAllAssets();
 
@@ -196,9 +202,15 @@ void Game::DrawPageTitle(const char* title) {
 void Game::UpdateMenu() {
     Vector2 mousePos = GetMousePosition();
     if (ContinueButton.IsClicked(mousePos)) {
+        loadGame("savegame.json", session);
+        selectedBoardSize = static_cast<int>(session.currentState.board.size());
+        board.SetBoardSize(selectedBoardSize);
+        territory.clear();
+        aiThinkTimer = 0.0f;
         currentScreen = (session.mode == GameMode::PvE) ? PVE : PVP;
     }
     else if (NewGameButton.IsClicked(mousePos)) {
+        territory.clear();
         currentScreen = SIZE;
     }
     else if (SkinsButton.IsClicked(mousePos)) {
@@ -261,6 +273,8 @@ void Game::UpdateSelectMode() {
         session.undoHistory.clear();
         session.redoHistory.clear();
         session.mode = GameMode::PvP;
+        territory.clear();
+        aiThinkTimer = 0.0f;
         currentScreen = PVP;
     }
     else if (PvEButton.IsClicked(mousePos)) {
@@ -290,6 +304,7 @@ void Game::UpdateSelectDifficulty() {
         session.undoHistory.clear();
         session.redoHistory.clear();
         session.mode = GameMode::PvE;
+        territory.clear();
         aiThinkTimer = 0.0f;
         currentScreen = PVE;
     }
@@ -300,6 +315,7 @@ void Game::UpdateSelectDifficulty() {
         session.undoHistory.clear();
         session.redoHistory.clear();
         session.mode = GameMode::PvE;
+        territory.clear();
         aiThinkTimer = 0.0f;
         currentScreen = PVE;
     }
@@ -310,6 +326,7 @@ void Game::UpdateSelectDifficulty() {
         session.undoHistory.clear();
         session.redoHistory.clear();
         session.mode = GameMode::PvE;
+        territory.clear();
         aiThinkTimer = 0.0f;
         currentScreen = PVE;
     }

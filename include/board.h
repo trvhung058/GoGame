@@ -56,19 +56,20 @@ class Board {
         Texture2D GetWhiteStoneTexture(StoneSkinType skin, int boardSize = -1) const;
 
         void Draw(int sz); 
-        void Draw(const std::vector<std::vector<Stone>>& grid);
+        void Draw(const std::vector<std::vector<Stone>>& grid, const std::vector<std::vector<bool>>& deadStones = {});
         void Draw(const SessionSnapshot& state);
 
         void DrawGhostStone(Point pos, Stone player);
         void DrawGhostStone(int col, int row, Stone player);
 
-        void DrawStone(Point pos, Stone player);
-        void DrawStone(int col, int row, Stone player);
+        void DrawStone(Point pos, Stone player, bool isDead = false);
+        void DrawStone(int col, int row, Stone player, bool isDead = false);
 
         void DrawLastPlayed(Move lastMove, Stone player);
         void DrawLastPlayed(int col, int row, Stone player);
         
         Point GetCellIndex(Vector2 mousePos, int boardSize = 19);
+        float GetCellSize();
         Vector2 GetPixelPosition(Point pos);
         Vector2 GetPixelPosition(int col, int row);
 };

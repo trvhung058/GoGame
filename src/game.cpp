@@ -500,6 +500,49 @@ void Game::HandleAITurn() {
     tryPlayMove(session, aiMove);
 }
 
+void Game::UpdateTerritoty() {
+    if (session.currentState.phase != GamePhase::Scoring) return;
+
+    int bSize = static_cast<int>(session.currentState.board.size());
+    if (territory.size() != static_cast<size_t>(bSize)) {
+        if (session.currentState.deadStones.size() != session.currentState.board.size()) {
+            session.currentState.deadStones = generateDeadStoneProposal(session.currentState);
+        }
+        territory = generateTerritoryProposal(session.currentState);
+        session.currentState.territoryProposal = territory;
+    }
+}
+
+void Game::DrawTerritoty() {
+    if (session.currentState.phase != GamePhase::Scoring) return;
+    int bSize = static_cast<int>(session.currentState.board.size());
+    if (territory.size() != static_cast<size_t>(bSize)) return;
+
+    float cell_size = board.GetCellSize();
+    float markerSize = (cell_size > 0) ? (cell_size * 0.35f) : 14.0f;
+    float halfSize = markerSize / 2.0f;
+
+    for (int col = 0; col < bSize; col++) {
+        for (int row = 0; row < bSize; row++) {
+            TerritoryOwner owner = territory[col][row];
+            if (owner != TerritoryOwner::White && owner != TerritoryOwner::Black) continue;
+
+            Vector2 pixelPos = board.GetPixelPosition(col, row);
+            int px = static_cast<int>(pixelPos.x - halfSize);
+            int py = static_cast<int>(pixelPos.y - halfSize);
+            int ps = static_cast<int>(markerSize);
+
+            if (owner == TerritoryOwner::Black) {
+                DrawRectangle(px, py, ps, ps, Color{ 15, 15, 15, 230 });
+                DrawRectangleLines(px, py, ps, ps, Color{ 160, 160, 160, 200 });
+            } else {
+                DrawRectangle(px, py, ps, ps, Color{ 245, 245, 245, 230 });
+                DrawRectangleLines(px, py, ps, ps, Color{ 50, 50, 50, 200 });
+            }
+        }
+    }
+}
+
 // ======================= GAMEPLAY =======================
 void Game::UpdateGameplay() {
     Vector2 mousePos = GetMousePosition();
@@ -564,7 +607,11 @@ void Game::UpdateGameplay() {
 void Game::DrawGameplay() {
     background.Draw(true);
 
-    board.Draw(session.currentState.board);
+    if (session.currentState.phase == GamePhase::Scoring) {
+        board.Draw(session.currentState.board, session.currentState.deadStones);
+    } else {
+        board.Draw(session.currentState.board);
+    }
     Stone lastColor = Stone::Empty;
     if (session.currentState.sideToMove == Stone::Black) lastColor = Stone::White;
     else if (session.currentState.sideToMove == Stone::White) lastColor = Stone::Black;
@@ -617,44 +664,55 @@ void Game::DrawGameplay() {
         std::string passInfo = "Consecutive passes: " + std::to_string(session.currentState.consecutivePasses) + " / 2";
         DrawTextEx(textFont, passInfo.c_str(), {990.0f, 370.0f}, 24.0f, 2.0f, LIGHTGRAY);
     } else {
-        SessionSnapshot scoringState = session.currentState;
-        if (scoringState.phase == GamePhase::Playing) {
-            scoringState.phase = GamePhase::Scoring;
-        }
-        if (scoringState.territoryProposal.empty()) {
-            scoringState.territoryProposal = generateTerritoryProposal(scoringState);
-        }
-
-        Score score{0.0, kKomi};
-        try {
-            score = calculateAreaScore(scoringState, kKomi);
-        } catch (...) {
-        }
-
-        std::ostringstream ssB, ssW;
-        ssB << std::fixed << std::setprecision(1) << score.black;
-        ssW << std::fixed << std::setprecision(1) << score.white;
-
-        DrawTextEx(textFont, "FINAL SCORE", {1080.0f, 190.0f}, 30.0f, 2.0f, GOLD);
-
-        std::string blackScoreStr = "Black: " + ssB.str() + " pts";
-        std::string whiteScoreStr = "White: " + ssW.str() + " pts (Komi 7.5)";
-        DrawTextEx(textFont, blackScoreStr.c_str(), {990.0f, 245.0f}, 26.0f, 2.0f, RAYWHITE);
-        DrawTextEx(textFont, whiteScoreStr.c_str(), {990.0f, 290.0f}, 26.0f, 2.0f, RAYWHITE);
-
-        if (score.black > score.white) {
-            std::ostringstream diff;
-            diff << std::fixed << std::setprecision(1) << (score.black - score.white);
-            std::string winStr = "Winner: Black by " + diff.str() + " pts!";
-            DrawTextEx(textFont, winStr.c_str(), {990.0f, 345.0f}, 26.0f, 2.0f, GREEN);
+        if (session.currentState.phase == GamePhase::Finished) {
+            Stone resigner = session.currentState.sideToMove;
+            std::string winStr = (resigner == Stone::Black) ? "White wins by Resignation!" : "Black wins by Resignation!";
+            DrawTextEx(textFont, "RESIGNATION", {1080.0f, 220.0f}, 30.0f, 2.0f, GOLD);
+            DrawTextEx(textFont, winStr.c_str(), {990.0f, 280.0f}, 26.0f, 2.0f, GREEN);
+            DrawTextEx(textFont, "GAME OVER", {1100.0f, 400.0f}, 32.0f, 2.0f, RED);
         } else {
-            std::ostringstream diff;
-            diff << std::fixed << std::setprecision(1) << (score.white - score.black);
-            std::string winStr = "Winner: White by " + diff.str() + " pts!";
-            DrawTextEx(textFont, winStr.c_str(), {990.0f, 345.0f}, 26.0f, 2.0f, GREEN);
-        }
+            SessionSnapshot scoringState = session.currentState;
+            if (scoringState.phase == GamePhase::Playing) {
+                scoringState.phase = GamePhase::Scoring;
+            }
+            if (scoringState.deadStones.size() != scoringState.board.size()) {
+                scoringState.deadStones = generateDeadStoneProposal(scoringState);
+            }
+            if (scoringState.territoryProposal.empty()) {
+                scoringState.territoryProposal = generateTerritoryProposal(scoringState);
+            }
 
-        DrawTextEx(textFont, "GAME OVER", {1100.0f, 430.0f}, 32.0f, 2.0f, RED);
+            Score score{0.0, kKomi};
+            try {
+                score = calculateAreaScore(scoringState, kKomi);
+            } catch (...) {
+            }
+
+            std::ostringstream ssB, ssW;
+            ssB << std::fixed << std::setprecision(1) << score.black;
+            ssW << std::fixed << std::setprecision(1) << score.white;
+
+            DrawTextEx(textFont, "FINAL SCORE", {1080.0f, 190.0f}, 30.0f, 2.0f, GOLD);
+
+            std::string blackScoreStr = "Black: " + ssB.str() + " pts";
+            std::string whiteScoreStr = "White: " + ssW.str() + " pts (Komi 7.5)";
+            DrawTextEx(textFont, blackScoreStr.c_str(), {990.0f, 245.0f}, 26.0f, 2.0f, RAYWHITE);
+            DrawTextEx(textFont, whiteScoreStr.c_str(), {990.0f, 290.0f}, 26.0f, 2.0f, RAYWHITE);
+
+            if (score.black > score.white) {
+                std::ostringstream diff;
+                diff << std::fixed << std::setprecision(1) << (score.black - score.white);
+                std::string winStr = "Winner: Black by " + diff.str() + " pts!";
+                DrawTextEx(textFont, winStr.c_str(), {990.0f, 345.0f}, 26.0f, 2.0f, GREEN);
+            } else {
+                std::ostringstream diff;
+                diff << std::fixed << std::setprecision(1) << (score.white - score.black);
+                std::string winStr = "Winner: White by " + diff.str() + " pts!";
+                DrawTextEx(textFont, winStr.c_str(), {990.0f, 345.0f}, 26.0f, 2.0f, GREEN);
+            }
+
+            DrawTextEx(textFont, "GAME OVER", {1100.0f, 430.0f}, 32.0f, 2.0f, RED);
+        }
     }
 
     PassButton.Draw();
@@ -687,6 +745,7 @@ void Game::Draw(){
     case PVP:
     case PVE:
         DrawGameplay();
+        DrawTerritoty();
         break;
     case EXIT:
         break;
@@ -716,6 +775,7 @@ void Game::Update(){
     case PVP:
     case PVE:
         UpdateGameplay();
+        UpdateTerritoty();
         break;
     case EXIT:
         break;

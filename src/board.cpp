@@ -142,29 +142,35 @@ void Board::Draw(int sz) {
     }
 }
 
-void Board::Draw(const std::vector<std::vector<Stone>>& grid) {
+void Board::Draw(const std::vector<std::vector<Stone>>& grid, const std::vector<std::vector<bool>>& deadStones) {
     Draw(static_cast<int>(grid.size())); 
 
     if (!isLoaded) return;
 
+    bool hasDeadStones = !deadStones.empty() && (deadStones.size() == grid.size());
     int cols = static_cast<int>(grid.size());
     for (int c = 0; c < cols; c++) {
         int rows = static_cast<int>(grid[c].size());
         for (int r = 0; r < rows; r++) {
-            DrawStone(c, r, grid[c][r]);
+            bool isDead = hasDeadStones && (r < static_cast<int>(deadStones[c].size())) && deadStones[c][r];
+            DrawStone(c, r, grid[c][r], isDead);
         }
     }
 }
 
 void Board::Draw(const SessionSnapshot& state) {
-    Draw(state.board);
+    if (state.phase == GamePhase::Scoring) {
+        Draw(state.board, state.deadStones);
+    } else {
+        Draw(state.board);
+    }
 }
 
-void Board::DrawStone(Point pos, Stone player) {
-    DrawStone(static_cast<int>(pos.col), static_cast<int>(pos.row), player);
+void Board::DrawStone(Point pos, Stone player, bool isDead) {
+    DrawStone(static_cast<int>(pos.col), static_cast<int>(pos.row), player, isDead);
 }
 
-void Board::DrawStone(int col, int row, Stone player) {
+void Board::DrawStone(int col, int row, Stone player, bool isDead) {
     if (player == Stone::Empty || !isLoaded) return;
 
     Vector2 pixelPos = GetPixelPosition(col, row);
@@ -172,17 +178,22 @@ void Board::DrawStone(int col, int row, Stone player) {
     if (currentStoneSkin == StoneSkinType::PureSolid) {
         float radius = (cell_size > 0) ? (cell_size * 0.46f) : 18.0f;
         if (player == Stone::Black) {
-            DrawCircle(static_cast<int>(pixelPos.x), static_cast<int>(pixelPos.y), radius, Color{15, 15, 15, 255});
-            DrawCircleLines(static_cast<int>(pixelPos.x), static_cast<int>(pixelPos.y), radius, Color{70, 70, 70, 255});
+            Color fill = isDead ? Color{15, 15, 15, 80} : Color{15, 15, 15, 255};
+            Color line = isDead ? Color{70, 70, 70, 110} : Color{70, 70, 70, 255};
+            DrawCircle(static_cast<int>(pixelPos.x), static_cast<int>(pixelPos.y), radius, fill);
+            DrawCircleLines(static_cast<int>(pixelPos.x), static_cast<int>(pixelPos.y), radius, line);
         } else if (player == Stone::White) {
-            DrawCircle(static_cast<int>(pixelPos.x), static_cast<int>(pixelPos.y), radius, Color{245, 245, 245, 255});
-            DrawCircleLines(static_cast<int>(pixelPos.x), static_cast<int>(pixelPos.y), radius, Color{180, 180, 180, 255});
+            Color fill = isDead ? Color{245, 245, 245, 80} : Color{245, 245, 245, 255};
+            Color line = isDead ? Color{180, 180, 180, 110} : Color{180, 180, 180, 255};
+            DrawCircle(static_cast<int>(pixelPos.x), static_cast<int>(pixelPos.y), radius, fill);
+            DrawCircleLines(static_cast<int>(pixelPos.x), static_cast<int>(pixelPos.y), radius, line);
         }
         return;
     }
 
     Texture2D texBlackStone = GetBlackStoneTexture(currentStoneSkin, currentBoardSize);
     Texture2D texWhiteStone = GetWhiteStoneTexture(currentStoneSkin, currentBoardSize);
+    Color tint = isDead ? Fade(WHITE, 0.35f) : WHITE;
 
     if (player == Stone::Black && texBlackStone.id != 0) {
         float stoneHalfSize = texBlackStone.width / 2.0f;
@@ -190,7 +201,7 @@ void Board::DrawStone(int col, int row, Stone player) {
             texBlackStone,
             static_cast<int>(pixelPos.x - stoneHalfSize),
             static_cast<int>(pixelPos.y - stoneHalfSize),
-            WHITE
+            tint
         );
     } else if (player == Stone::White && texWhiteStone.id != 0) {
         float stoneHalfSize = texWhiteStone.width / 2.0f;
@@ -198,7 +209,7 @@ void Board::DrawStone(int col, int row, Stone player) {
             texWhiteStone,
             static_cast<int>(pixelPos.x - stoneHalfSize),
             static_cast<int>(pixelPos.y - stoneHalfSize),
-            WHITE
+            tint
         );
     }
 }
@@ -256,6 +267,10 @@ Point Board::GetCellIndex(Vector2 mousePos, int boardSize) {
     }
 
     return {static_cast<std::size_t>(col), static_cast<std::size_t>(row)}; 
+}
+
+float Board::GetCellSize() {
+    return cell_size;
 }
 
 Vector2 Board::GetPixelPosition(Point pos) {

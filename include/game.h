@@ -58,6 +58,7 @@ class Game {
         int selectedBoardSize = 19;
         AIDifficulty aiDifficulty = AIDifficulty::Easy;
         float aiThinkTimer = 0.0f; 
+        TerritoryMap territory;
 
         enum Scene {
             MENU,
@@ -87,6 +88,9 @@ class Game {
 
         void UpdateGameplay();
         void DrawGameplay();
+
+        void UpdateTerritoty();
+        void DrawTerritoty();
 
         void HandleAITurn();
 

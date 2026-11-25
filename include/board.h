@@ -67,6 +67,7 @@ class Board {
 
         void DrawLastPlayed(Move lastMove, Stone player);
         void DrawLastPlayed(int col, int row, Stone player);
+        void DrawCapturedMarkers(const BoardGrid& previousBoard, const BoardGrid& currentBoard);
         
         Point GetCellIndex(Vector2 mousePos, int boardSize = 19);
         float GetCellSize();

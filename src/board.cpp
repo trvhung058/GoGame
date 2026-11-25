@@ -255,6 +255,34 @@ void Board::DrawLastPlayed(int col, int row, Stone player) {
     );
 }
 
+void Board::DrawCapturedMarkers(const BoardGrid& previousBoard, const BoardGrid& currentBoard) {
+    if (!isLoaded || previousBoard.empty() || previousBoard.size() != currentBoard.size()) {
+        return;
+    }
+
+    float markerSize = (cell_size > 0) ? (cell_size * 0.6f) : 20.0f;
+    float halfSize = markerSize / 2.0f;
+
+    for (std::size_t col = 0; col < previousBoard.size(); ++col) {
+        if (previousBoard[col].size() != currentBoard[col].size()) {
+            continue;
+        }
+        for (std::size_t row = 0; row < previousBoard[col].size(); ++row) {
+            if (previousBoard[col][row] != Stone::Empty && currentBoard[col][row] == Stone::Empty) {
+                Vector2 pixelPos = GetPixelPosition(static_cast<int>(col), static_cast<int>(row));
+                Color borderColor = (previousBoard[col][row] == Stone::White) ? BLACK : WHITE;
+                Rectangle rect = {
+                    pixelPos.x - halfSize,
+                    pixelPos.y - halfSize,
+                    markerSize,
+                    markerSize
+                };
+                DrawRectangleLinesEx(rect, 2.0f, borderColor);
+            }
+        }
+    }
+}
+
 Point Board::GetCellIndex(Vector2 mousePos, int boardSize) {
     const std::size_t invalidCoordinate = std::numeric_limits<std::size_t>::max();
     if (cell_size <= 0) return {invalidCoordinate, invalidCoordinate};

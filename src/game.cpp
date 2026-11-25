@@ -689,6 +689,7 @@ void Game::DrawGameplay() {
     if (session.currentState.sideToMove == Stone::Black) lastColor = Stone::White;
     else if (session.currentState.sideToMove == Stone::White) lastColor = Stone::Black;
     board.DrawLastPlayed(session.currentState.lastMove, lastColor);
+    board.DrawCapturedMarkers(session.currentState.previousBoard, session.currentState.board);
 
     int boardSize = static_cast<int>(session.currentState.board.size());
     bool isPlayerTurn = (currentScreen == PVP) || (currentScreen == PVE && session.currentState.sideToMove == Stone::Black);

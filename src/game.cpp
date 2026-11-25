@@ -1,4 +1,5 @@
 #include "game.h"
+#include <algorithm>
 #include <cmath>
 #include <exception>
 #include <limits>
@@ -136,8 +137,8 @@ Game::Game(){
     BackFromSkinButton.SetText("Back");
     BackFromSkinButton.SetPosition((screenWidth - texSize.first) / 2.0f, 800.0f);
 
-    float col1X = 980.0f;
-    float col2X = 1220.0f;
+    float col1X = 975.0f;
+    float col2X = 1205.0f;
     float row1Y = 560.0f;
     float row2Y = 670.0f;
     float row3Y = 780.0f;
@@ -197,15 +198,20 @@ Game::~Game() {
 void Game::DrawPageTitle(const char* title) {
     if (title == nullptr || title[0] == '\0') return;
 
-    float fontSize = 96.0f; 
+    float fontSize = 88.0f;
     float spacing = 3.0f;
     Font currentFont = (titleFont.texture.id != 0) ? titleFont : GetFontDefault();
     Vector2 textSize = MeasureTextEx(currentFont, title, fontSize, spacing);
     float titleX = std::round((GetScreenWidth() - textSize.x) / 2.0f);
-    float titleY = 100.0f; 
+    float titleY = 92.0f;
 
-    DrawTextEx(currentFont, title, {titleX + 3.0f, titleY + 3.0f}, fontSize, spacing, Color{0, 0, 0, 200});
+    DrawTextEx(currentFont, title, {titleX + 3.0f, titleY + 3.0f}, fontSize, spacing, Color{0, 0, 0, 210});
     DrawTextEx(currentFont, title, {titleX, titleY}, fontSize, spacing, WHITE);
+
+    float lineWidth = std::min(textSize.x + 60.0f, 520.0f);
+    float lineX = (GetScreenWidth() - lineWidth) / 2.0f;
+    float lineY = titleY + textSize.y + 12.0f;
+    DrawRectangleRounded({ lineX, lineY, lineWidth, 3.0f }, 1.0f, 4, Fade(GOLD, 0.75f));
 }
 
 // ======================= MENU =======================
@@ -369,15 +375,15 @@ struct StoneSkinOption {
 };
 
 static constexpr BoardSkinOption kBoardSkinOptions[3] = {
-    { BoardSkinType::ClassicWood, "Classic Wood", { 90.0f, 320.0f, 180.0f, 180.0f } },
-    { BoardSkinType::Hardwood,    "Hardwood",     { 310.0f, 320.0f, 180.0f, 180.0f } },
-    { BoardSkinType::DarkWood,    "Dark Wood",    { 530.0f, 320.0f, 180.0f, 180.0f } }
+    { BoardSkinType::ClassicWood, "Classic Wood", { 85.0f, 330.0f, 170.0f, 170.0f } },
+    { BoardSkinType::Hardwood,    "Hardwood",     { 290.0f, 330.0f, 170.0f, 170.0f } },
+    { BoardSkinType::DarkWood,    "Dark Wood",    { 495.0f, 330.0f, 170.0f, 170.0f } }
 };
 
 static constexpr StoneSkinOption kStoneSkinOptions[3] = {
-    { StoneSkinType::Classic,     "Classic 3D",   { 900.0f, 410.0f }, 75.0f },
-    { StoneSkinType::FlatMinimal, "Glossy Stone", { 1110.0f, 410.0f }, 75.0f },
-    { StoneSkinType::PureSolid,   "Pure Solid",   { 1320.0f, 410.0f }, 75.0f }
+    { StoneSkinType::Classic,     "Classic 3D",   { 920.0f, 415.0f }, 75.0f },
+    { StoneSkinType::FlatMinimal, "Glossy Stone", { 1125.0f, 415.0f }, 75.0f },
+    { StoneSkinType::PureSolid,   "Pure Solid",   { 1330.0f, 415.0f }, 75.0f }
 };
 
 void Game::UpdateSkin() {
@@ -408,13 +414,17 @@ void Game::DrawSkin() {
     background.Draw(true);
     DrawPageTitle("Skins Customization");
 
-    Vector2 tSize1 = MeasureTextEx(textFont, "Board Skins", 42.0f, 2.0f);
-    DrawTextEx(textFont, "Board Skins", {400.0f - tSize1.x / 2.0f, 230.0f}, 42.0f, 2.0f, GOLD);
+    DrawRectangleRounded({ 50.0f, 220.0f, 650.0f, 380.0f }, 0.05f, 12, Color{ 14, 16, 22, 165 });
+    DrawRectangleRoundedLinesEx({ 50.0f, 220.0f, 650.0f, 380.0f }, 0.05f, 12, 1.5f, Fade(GOLD, 0.25f));
 
-    Vector2 tSize2 = MeasureTextEx(textFont, "Stone Skins", 42.0f, 2.0f);
-    DrawTextEx(textFont, "Stone Skins", {1110.0f - tSize2.x / 2.0f, 230.0f}, 42.0f, 2.0f, GOLD);
+    DrawRectangleRounded({ 800.0f, 220.0f, 650.0f, 380.0f }, 0.05f, 12, Color{ 14, 16, 22, 165 });
+    DrawRectangleRoundedLinesEx({ 800.0f, 220.0f, 650.0f, 380.0f }, 0.05f, 12, 1.5f, Fade(GOLD, 0.25f));
 
-    DrawLine(750, 240, 750, 750, Fade(WHITE, 0.2f));
+    Vector2 tSize1 = MeasureTextEx(textFont, "Board Skins", 40.0f, 2.0f);
+    DrawTextEx(textFont, "Board Skins", {375.0f - tSize1.x / 2.0f, 245.0f}, 40.0f, 2.0f, GOLD);
+
+    Vector2 tSize2 = MeasureTextEx(textFont, "Stone Skins", 40.0f, 2.0f);
+    DrawTextEx(textFont, "Stone Skins", {1125.0f - tSize2.x / 2.0f, 245.0f}, 40.0f, 2.0f, GOLD);
 
     Vector2 mousePos = GetMousePosition();
 
@@ -447,7 +457,7 @@ void Game::DrawSkin() {
         }
 
         Vector2 nameSize = MeasureTextEx(textFont, opt.name, 26.0f, 2.0f);
-        DrawTextEx(textFont, opt.name, { r.x + (r.width - nameSize.x) / 2.0f, r.y + r.height + 15.0f }, 26.0f, 2.0f, isSelected ? GREEN : RAYWHITE);
+        DrawTextEx(textFont, opt.name, { r.x + (r.width - nameSize.x) / 2.0f, 525.0f }, 26.0f, 2.0f, isSelected ? GREEN : RAYWHITE);
     }
 
     for (const auto& opt : kStoneSkinOptions) {
@@ -489,7 +499,7 @@ void Game::DrawSkin() {
         }
 
         Vector2 nameSize = MeasureTextEx(textFont, opt.name, 26.0f, 2.0f);
-        DrawTextEx(textFont, opt.name, { c.x - nameSize.x / 2.0f, c.y + radius + 25.0f }, 26.0f, 2.0f, isSelected ? GREEN : RAYWHITE);
+        DrawTextEx(textFont, opt.name, { c.x - nameSize.x / 2.0f, 525.0f }, 26.0f, 2.0f, isSelected ? GREEN : RAYWHITE);
     }
 
     BackFromSkinButton.Draw();
@@ -710,8 +720,21 @@ void Game::DrawGameplay() {
         }
     }
 
-    DrawRectangleRounded({950.0f, 100.0f, 490.0f, 420.0f}, 0.08f, 16, Fade(BLACK, 0.45f));
-    DrawRectangleRoundedLinesEx({950.0f, 100.0f, 490.0f, 420.0f}, 0.08f, 16, 2.0f, Fade(WHITE, 0.3f));
+    const float panelX = 940.0f;
+    const float panelY = 100.0f;
+    const float panelW = 500.0f;
+    const float panelH = 430.0f;
+    const float panelCenterX = panelX + panelW / 2.0f;
+    const float contentX = panelX + 35.0f;
+
+    auto drawCenteredInPanel = [&](const char* text, float y, float fontSize, float spacing, Color color) {
+        Vector2 sz = MeasureTextEx(textFont, text, fontSize, spacing);
+        DrawTextEx(textFont, text, { std::round(panelCenterX - sz.x / 2.0f), y }, fontSize, spacing, color);
+    };
+
+    DrawRectangleRounded({panelX + 4.0f, panelY + 4.0f, panelW, panelH}, 0.06f, 16, Fade(BLACK, 0.35f));
+    DrawRectangleRounded({panelX, panelY, panelW, panelH}, 0.06f, 16, Color{14, 16, 22, 195});
+    DrawRectangleRoundedLinesEx({panelX, panelY, panelW, panelH}, 0.06f, 16, 1.5f, Fade(GOLD, 0.35f));
 
     std::string modeTitle = (session.mode == GameMode::PvE) ? "Player vs AI" : "Player vs Player";
     if (session.mode == GameMode::PvE) {
@@ -719,8 +742,8 @@ void Game::DrawGameplay() {
         else if (aiDifficulty == AIDifficulty::Medium) modeTitle += " (Med)";
         else if (aiDifficulty == AIDifficulty::Hard) modeTitle += " (Hard)";
     }
-    Vector2 mSize = MeasureTextEx(textFont, modeTitle.c_str(), 36.0f, 2.0f);
-    DrawTextEx(textFont, modeTitle.c_str(), {std::round(950.0f + (490.0f - mSize.x) / 2.0f), 130.0f}, 36.0f, 2.0f, GOLD);
+    drawCenteredInPanel(modeTitle.c_str(), 125.0f, 34.0f, 2.0f, GOLD);
+    DrawLineEx({panelX + 30.0f, 175.0f}, {panelX + panelW - 30.0f, 175.0f}, 1.5f, Fade(WHITE, 0.18f));
 
     if (session.currentState.phase == GamePhase::Playing) {
         std::string turnText;
@@ -729,25 +752,36 @@ void Game::DrawGameplay() {
         } else {
             turnText = (session.currentState.sideToMove == Stone::Black) ? "Turn: Black" : "Turn: White";
         }
-        DrawTextEx(textFont, turnText.c_str(), {990.0f, 200.0f}, 30.0f, 2.0f, WHITE);
+        DrawTextEx(textFont, turnText.c_str(), {contentX, 200.0f}, 30.0f, 2.0f, WHITE);
 
-        Color stoneColor = (session.currentState.sideToMove == Stone::Black) ? BLACK : WHITE;
-        DrawCircle(1380, 215, 18, stoneColor);
-        DrawCircleLines(1380, 215, 18, (session.currentState.sideToMove == Stone::Black) ? WHITE : BLACK);
+        Color stoneColor = (session.currentState.sideToMove == Stone::Black) ? Color{20, 20, 20, 255} : Color{245, 245, 245, 255};
+        DrawCircle(static_cast<int>(panelX + panelW - 55.0f), 216, 18, stoneColor);
+        DrawCircleLines(static_cast<int>(panelX + panelW - 55.0f), 216, 18, (session.currentState.sideToMove == Stone::Black) ? Fade(WHITE, 0.7f) : Fade(BLACK, 0.7f));
 
-        std::string capturedBlack = "Black (Player): " + std::to_string(session.currentState.capturedByBlack);
-        std::string capturedWhite = (currentScreen == PVE) 
-            ? "White (AI): " + std::to_string(session.currentState.capturedByWhite)
+        std::string capturedBlack = (currentScreen == PVE)
+            ? "Black (Player) captured: " + std::to_string(session.currentState.capturedByBlack)
+            : "Black captured: " + std::to_string(session.currentState.capturedByBlack);
+        std::string capturedWhite = (currentScreen == PVE)
+            ? "White (AI) captured: " + std::to_string(session.currentState.capturedByWhite)
             : "White captured: " + std::to_string(session.currentState.capturedByWhite);
-        DrawTextEx(textFont, capturedBlack.c_str(), {990.0f, 270.0f}, 26.0f, 2.0f, RAYWHITE);
-        DrawTextEx(textFont, capturedWhite.c_str(), {990.0f, 320.0f}, 26.0f, 2.0f, RAYWHITE);
+
+        DrawCircle(static_cast<int>(contentX + 10.0f), 278, 10, Color{20, 20, 20, 255});
+        DrawCircleLines(static_cast<int>(contentX + 10.0f), 278, 10, Fade(WHITE, 0.6f));
+        DrawTextEx(textFont, capturedBlack.c_str(), {contentX + 32.0f, 265.0f}, 25.0f, 1.5f, RAYWHITE);
+
+        DrawCircle(static_cast<int>(contentX + 10.0f), 328, 10, Color{245, 245, 245, 255});
+        DrawCircleLines(static_cast<int>(contentX + 10.0f), 328, 10, Fade(BLACK, 0.6f));
+        DrawTextEx(textFont, capturedWhite.c_str(), {contentX + 32.0f, 315.0f}, 25.0f, 1.5f, RAYWHITE);
 
         std::string passInfo = "Consecutive passes: " + std::to_string(session.currentState.consecutivePasses) + " / 2";
-        DrawTextEx(textFont, passInfo.c_str(), {990.0f, 370.0f}, 24.0f, 2.0f, LIGHTGRAY);
+        DrawTextEx(textFont, passInfo.c_str(), {contentX, 372.0f}, 23.0f, 1.5f, LIGHTGRAY);
 
         if (hasPendingPointlessWarning) {
-            DrawTextEx(textFont, "Warning: Useless move!", {990.0f, 420.0f}, 24.0f, 1.5f, ORANGE);
-            DrawTextEx(textFont, "Click again on the same spot to play.", {990.0f, 455.0f}, 20.0f, 1.5f, YELLOW);
+            Rectangle warnBox = { contentX - 5.0f, 420.0f, panelW - 60.0f, 84.0f };
+            DrawRectangleRounded(warnBox, 0.14f, 8, Fade(ORANGE, 0.14f));
+            DrawRectangleRoundedLinesEx(warnBox, 0.14f, 8, 1.5f, Fade(ORANGE, 0.7f));
+            drawCenteredInPanel("Warning: Useless move!", 432.0f, 24.0f, 1.5f, ORANGE);
+            drawCenteredInPanel("Click the same spot again to play.", 466.0f, 20.0f, 1.2f, YELLOW);
         }
     } else if (session.currentState.phase == GamePhase::Scoring) {
         SessionSnapshot scoringState = session.currentState;
@@ -768,21 +802,20 @@ void Game::DrawGameplay() {
         ssB << std::fixed << std::setprecision(1) << score.black;
         ssW << std::fixed << std::setprecision(1) << score.white;
 
-        DrawTextEx(textFont, "DEAD STONE REVIEW", {1030.0f, 190.0f}, 28.0f, 2.0f, GOLD);
+        drawCenteredInPanel("DEAD STONE REVIEW", 198.0f, 28.0f, 2.0f, GOLD);
 
         std::string blackScoreStr = "Black: " + ssB.str() + " pts";
         std::string whiteScoreStr = "White: " + ssW.str() + " pts (Komi 7.5)";
-        DrawTextEx(textFont, blackScoreStr.c_str(), {990.0f, 245.0f}, 26.0f, 2.0f, RAYWHITE);
-        DrawTextEx(textFont, whiteScoreStr.c_str(), {990.0f, 290.0f}, 26.0f, 2.0f, RAYWHITE);
-        DrawTextEx(textFont, "Click stone groups to toggle dead.", {990.0f, 355.0f}, 22.0f, 1.5f, LIGHTGRAY);
-        DrawTextEx(textFont, "Accept to finish or Resume to play.", {990.0f, 395.0f}, 22.0f, 1.5f, LIGHTGRAY);
+        DrawTextEx(textFont, blackScoreStr.c_str(), {contentX, 255.0f}, 26.0f, 1.5f, RAYWHITE);
+        DrawTextEx(textFont, whiteScoreStr.c_str(), {contentX, 300.0f}, 26.0f, 1.5f, RAYWHITE);
+        DrawTextEx(textFont, "Click stone groups to toggle dead.", {contentX, 365.0f}, 22.0f, 1.2f, LIGHTGRAY);
+        DrawTextEx(textFont, "Accept to finish or Resume to play.", {contentX, 405.0f}, 22.0f, 1.2f, LIGHTGRAY);
     } else {
         if (!isAcceptedFinished) {
             Stone resigner = session.currentState.sideToMove;
             std::string winStr = (resigner == Stone::Black) ? "White wins by Resignation!" : "Black wins by Resignation!";
-            DrawTextEx(textFont, "RESIGNATION", {1080.0f, 220.0f}, 30.0f, 2.0f, GOLD);
-            DrawTextEx(textFont, winStr.c_str(), {990.0f, 280.0f}, 26.0f, 2.0f, GREEN);
-            DrawTextEx(textFont, "GAME OVER", {1100.0f, 400.0f}, 32.0f, 2.0f, RED);
+            drawCenteredInPanel("RESIGNATION", 250.0f, 34.0f, 2.0f, GOLD);
+            drawCenteredInPanel(winStr.c_str(), 335.0f, 28.0f, 1.5f, GREEN);
         } else {
             SessionSnapshot scoringState = session.currentState;
             if (scoringState.deadStones.size() != scoringState.board.size()) {
@@ -802,26 +835,24 @@ void Game::DrawGameplay() {
             ssB << std::fixed << std::setprecision(1) << score.black;
             ssW << std::fixed << std::setprecision(1) << score.white;
 
-            DrawTextEx(textFont, "FINAL SCORE", {1080.0f, 190.0f}, 30.0f, 2.0f, GOLD);
+            drawCenteredInPanel("FINAL SCORE", 212.0f, 32.0f, 2.0f, GOLD);
 
             std::string blackScoreStr = "Black: " + ssB.str() + " pts";
             std::string whiteScoreStr = "White: " + ssW.str() + " pts (Komi 7.5)";
-            DrawTextEx(textFont, blackScoreStr.c_str(), {990.0f, 245.0f}, 26.0f, 2.0f, RAYWHITE);
-            DrawTextEx(textFont, whiteScoreStr.c_str(), {990.0f, 290.0f}, 26.0f, 2.0f, RAYWHITE);
+            drawCenteredInPanel(blackScoreStr.c_str(), 280.0f, 27.0f, 1.5f, RAYWHITE);
+            drawCenteredInPanel(whiteScoreStr.c_str(), 328.0f, 27.0f, 1.5f, RAYWHITE);
 
             if (score.black > score.white) {
                 std::ostringstream diff;
                 diff << std::fixed << std::setprecision(1) << (score.black - score.white);
                 std::string winStr = "Winner: Black by " + diff.str() + " pts!";
-                DrawTextEx(textFont, winStr.c_str(), {990.0f, 345.0f}, 26.0f, 2.0f, GREEN);
+                drawCenteredInPanel(winStr.c_str(), 412.0f, 28.0f, 1.5f, GREEN);
             } else {
                 std::ostringstream diff;
                 diff << std::fixed << std::setprecision(1) << (score.white - score.black);
                 std::string winStr = "Winner: White by " + diff.str() + " pts!";
-                DrawTextEx(textFont, winStr.c_str(), {990.0f, 345.0f}, 26.0f, 2.0f, GREEN);
+                drawCenteredInPanel(winStr.c_str(), 412.0f, 28.0f, 1.5f, GREEN);
             }
-
-            DrawTextEx(textFont, "GAME OVER", {1100.0f, 430.0f}, 32.0f, 2.0f, RED);
         }
     }
 

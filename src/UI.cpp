@@ -28,7 +28,7 @@ std::pair<int, int> UI::GetSize() {
 
 void UI::Draw(bool blur = false) {
     DrawTexture(tex, x, y, WHITE);
-    if (blur) DrawRectangle(x, y, tex.width, tex.height, Fade(BLACK, 0.4f));
+    if (blur) DrawRectangle(x, y, tex.width, tex.height, Fade(Color{10, 12, 16, 255}, 0.52f));
 }
 
 void Button::LoadAssets(const char *path, const char *path_hovered) {
@@ -37,7 +37,7 @@ void Button::LoadAssets(const char *path, const char *path_hovered) {
 }
 
 void Button::LoadFonts(const char *path) {
-    font = LoadFontEx(path, 96, 0, 0);
+    font = LoadFontEx(path, 48, 0, 0);
     SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
 }
 
@@ -89,12 +89,12 @@ void Button::Draw() {
     if (text == nullptr || text[0] == '\0') return;
 
     Font currentFont = (font.texture.id != 0) ? font : GetFontDefault();
-    float fontSize = 48.0f;
+    float fontSize = (bounds.width <= 220.0f) ? 36.0f : 44.0f;
     float spacing = 2.0f;
 
     Vector2 texSize = MeasureTextEx(currentFont, text, fontSize, spacing);
-    if (texSize.x > bounds.width - 30.0f) {
-        fontSize = std::floor(fontSize * ((bounds.width - 30.0f) / texSize.x));
+    if (texSize.x > bounds.width - 36.0f) {
+        fontSize = std::floor(fontSize * ((bounds.width - 36.0f) / texSize.x));
         spacing = 1.0f;
         texSize = MeasureTextEx(currentFont, text, fontSize, spacing);
     }
@@ -102,8 +102,6 @@ void Button::Draw() {
     float textX = std::round(bounds.x + (bounds.width - texSize.x) / 2.0f);
     float textY = std::round(bounds.y + (bounds.height - texSize.y) / 2.0f);
 
-    DrawTextEx(currentFont, text, {textX, textY + 2.0f}, fontSize, spacing, Color{0, 0, 0, 140});
-
-    Color mainColor = IsHovered(GetMousePosition()) ? Color{10, 10, 10, 255} : Color{30, 20, 15, 255};
+    Color mainColor = IsHovered(GetMousePosition()) ? Color{15, 10, 5, 255} : Color{35, 22, 14, 255};
     DrawTextEx(currentFont, text, {textX, textY}, fontSize, spacing, mainColor);
 }

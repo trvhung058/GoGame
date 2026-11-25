@@ -6,6 +6,7 @@ const int W = 1500;
 const int H = 1000;
 
 int main() {
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
     InitWindow(W, H, "Go Game");
 
     SetTargetFPS(60); 

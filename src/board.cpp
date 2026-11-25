@@ -1,4 +1,5 @@
 #include "board.h"
+#include <algorithm>
 #include <cmath> 
 #include <limits>
 
@@ -120,7 +121,9 @@ void Board::Draw(int sz) {
     Texture2D texBoard = GetBoardTexture(currentBoardSkin);
     if (texBoard.id == 0) return;
 
+    DrawRectangle(x + 8, y + 8, texBoard.width, texBoard.height, Fade(BLACK, 0.45f));
     DrawTexture(texBoard, x, y, WHITE);
+    DrawRectangleLinesEx({ static_cast<float>(x), static_cast<float>(y), static_cast<float>(texBoard.width), static_cast<float>(texBoard.height) }, 2.0f, Fade(BLACK, 0.5f));
     cell_size = texBoard.height / static_cast<float>(sz + 1);
     margin = cell_size;
 
@@ -243,16 +246,11 @@ void Board::DrawLastPlayed(int col, int row, Stone player) {
     if (player == Stone::Empty || !isLoaded) return;
 
     Vector2 pixelPos = GetPixelPosition(col, row);
-    Color markerColor = (player == Stone::Black) ? WHITE : BLACK;
-    float markerSize = (cell_size > 0) ? (cell_size * 0.35f) : 14.0f;
+    Color markerColor = (player == Stone::Black) ? Color{240, 240, 240, 235} : Color{25, 25, 25, 235};
+    float outerRadius = (cell_size > 0) ? (cell_size * 0.22f) : 8.5f;
+    float thickness = std::max(2.0f, outerRadius * 0.24f);
 
-    DrawRectangle(
-        static_cast<int>(pixelPos.x - markerSize / 2.0f),
-        static_cast<int>(pixelPos.y - markerSize / 2.0f),
-        static_cast<int>(markerSize),
-        static_cast<int>(markerSize),
-        markerColor
-    );
+    DrawRing(pixelPos, outerRadius - thickness, outerRadius, 0.0f, 360.0f, 64, markerColor);
 }
 
 void Board::DrawCapturedMarkers(const BoardGrid& previousBoard, const BoardGrid& currentBoard) {

@@ -61,7 +61,9 @@ class Game {
 
         int selectedBoardSize = 19;
         AIDifficulty aiDifficulty = AIDifficulty::Easy;
-        float aiThinkTimer = 0.0f; 
+        float aiThinkTimer = 0.0f;
+        bool hasPendingPointlessWarning = false;
+        Point pendingWarningCell{ 0, 0 }; 
 
         enum Scene {
             MENU,

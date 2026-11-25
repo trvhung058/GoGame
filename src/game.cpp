@@ -216,6 +216,7 @@ void Game::UpdateMenu() {
             selectedBoardSize = static_cast<int>(session.currentState.board.size());
             board.SetBoardSize(selectedBoardSize);
             aiThinkTimer = 0.0f;
+            hasPendingPointlessWarning = false;
             currentScreen = (session.mode == GameMode::PvE) ? PVE : PVP;
         }
     }
@@ -283,6 +284,7 @@ void Game::UpdateSelectMode() {
         session.redoHistory.clear();
         session.mode = GameMode::PvP;
         aiThinkTimer = 0.0f;
+        hasPendingPointlessWarning = false;
         currentScreen = PVP;
     }
     else if (PvEButton.IsClicked(mousePos)) {
@@ -313,6 +315,7 @@ void Game::UpdateSelectDifficulty() {
         session.redoHistory.clear();
         session.mode = GameMode::PvE;
         aiThinkTimer = 0.0f;
+        hasPendingPointlessWarning = false;
         currentScreen = PVE;
     }
     else if (MediumButton.IsClicked(mousePos)) {
@@ -323,6 +326,7 @@ void Game::UpdateSelectDifficulty() {
         session.redoHistory.clear();
         session.mode = GameMode::PvE;
         aiThinkTimer = 0.0f;
+        hasPendingPointlessWarning = false;
         currentScreen = PVE;
     }
     else if (HardButton.IsClicked(mousePos)) {
@@ -333,6 +337,7 @@ void Game::UpdateSelectDifficulty() {
         session.redoHistory.clear();
         session.mode = GameMode::PvE;
         aiThinkTimer = 0.0f;
+        hasPendingPointlessWarning = false;
         currentScreen = PVE;
     }
     else if (BackFromDiffButton.IsClicked(mousePos)) {
@@ -591,11 +596,13 @@ void Game::UpdateGameplay() {
         else if (ResumeButton.IsClicked(mousePos)) {
             reviewScore(session.currentState, session.currentState.sideToMove, false);
             aiThinkTimer = 0.0f;
+            hasPendingPointlessWarning = false;
         }
         return;
     }
 
     if (MainMenuButton.IsClicked(mousePos)) {
+        hasPendingPointlessWarning = false;
         currentScreen = MENU;
         return;
     }
@@ -618,22 +625,26 @@ void Game::UpdateGameplay() {
         passMove.isPass = true;
         tryPlayMove(session, passMove);
         aiThinkTimer = 0.0f;
+        hasPendingPointlessWarning = false;
         return;
     }
     else if (UndoButton.IsClicked(mousePos)) {
         size_t count = (session.mode == GameMode::PvE) ? 2 : 1;
         undoMoves(session, count);
         aiThinkTimer = 0.0f;
+        hasPendingPointlessWarning = false;
         return;
     }
     else if (RedoButton.IsClicked(mousePos)) {
         size_t count = (session.mode == GameMode::PvE) ? 2 : 1;
         redoMoves(session, count);
         aiThinkTimer = 0.0f;
+        hasPendingPointlessWarning = false;
         return;
     }
     else if (ResignButton.IsClicked(mousePos)) {
         session.currentState.phase = GamePhase::Finished;
+        hasPendingPointlessWarning = false;
         return;
     }
 
@@ -645,6 +656,17 @@ void Game::UpdateGameplay() {
     if (cell.col != std::numeric_limits<std::size_t>::max() &&
         cell.row != std::numeric_limits<std::size_t>::max() &&
         IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        bool confirmedSameCell = hasPendingPointlessWarning &&
+                                 pendingWarningCell.col == cell.col &&
+                                 pendingWarningCell.row == cell.row;
+
+        if (!confirmedSameCell && shouldWarnAboutPointlessMove(session, cell)) {
+            hasPendingPointlessWarning = true;
+            pendingWarningCell = cell;
+            return;
+        }
+
+        hasPendingPointlessWarning = false;
         Move currentMove{ false, cell };
         if (tryPlayMove(session, currentMove)) {
             aiThinkTimer = 0.0f;
@@ -677,6 +699,13 @@ void Game::DrawGameplay() {
             session.currentState.board[cell.col][cell.row] == Stone::Empty &&
             isLegalMove(session, cell)) {
             board.DrawGhostStone(cell, session.currentState.sideToMove);
+        }
+        if (hasPendingPointlessWarning) {
+            Vector2 warnPos = board.GetPixelPosition(pendingWarningCell);
+            float cellSize = board.GetCellSize();
+            float ringRadius = (cellSize > 0.0f) ? (cellSize * 0.45f) : 16.0f;
+            DrawCircleLines(static_cast<int>(warnPos.x), static_cast<int>(warnPos.y), ringRadius, ORANGE);
+            DrawCircleLines(static_cast<int>(warnPos.x), static_cast<int>(warnPos.y), ringRadius + 1.5f, ORANGE);
         }
     }
 
@@ -714,6 +743,11 @@ void Game::DrawGameplay() {
 
         std::string passInfo = "Consecutive passes: " + std::to_string(session.currentState.consecutivePasses) + " / 2";
         DrawTextEx(textFont, passInfo.c_str(), {990.0f, 370.0f}, 24.0f, 2.0f, LIGHTGRAY);
+
+        if (hasPendingPointlessWarning) {
+            DrawTextEx(textFont, "Warning: Useless move!", {990.0f, 420.0f}, 24.0f, 1.5f, ORANGE);
+            DrawTextEx(textFont, "Click again on the same spot to play.", {990.0f, 455.0f}, 20.0f, 1.5f, YELLOW);
+        }
     } else if (session.currentState.phase == GamePhase::Scoring) {
         SessionSnapshot scoringState = session.currentState;
         if (scoringState.deadStones.size() != scoringState.board.size()) {

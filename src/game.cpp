@@ -172,6 +172,16 @@ Game::Game(){
     MainMenuButton.SetText("Menu");
     MainMenuButton.SetPosition(col2X, row3Y);
 
+    AcceptButton.LoadAssets(btnUnhovered200, btnHovered200);
+    AcceptButton.LoadFonts(fontPath);
+    AcceptButton.SetText("Accept");
+    AcceptButton.SetPosition(col1X, row1Y);
+
+    ResumeButton.LoadAssets(btnUnhovered200, btnHovered200);
+    ResumeButton.LoadFonts(fontPath);
+    ResumeButton.SetText("Resume");
+    ResumeButton.SetPosition(col2X, row1Y);
+
     currentScreen = MENU;
 }
 
@@ -202,15 +212,14 @@ void Game::DrawPageTitle(const char* title) {
 void Game::UpdateMenu() {
     Vector2 mousePos = GetMousePosition();
     if (ContinueButton.IsClicked(mousePos)) {
-        loadGame("savegame.json", session);
-        selectedBoardSize = static_cast<int>(session.currentState.board.size());
-        board.SetBoardSize(selectedBoardSize);
-        territory.clear();
-        aiThinkTimer = 0.0f;
-        currentScreen = (session.mode == GameMode::PvE) ? PVE : PVP;
+        if (loadGame("savegame.json", session)) {
+            selectedBoardSize = static_cast<int>(session.currentState.board.size());
+            board.SetBoardSize(selectedBoardSize);
+            aiThinkTimer = 0.0f;
+            currentScreen = (session.mode == GameMode::PvE) ? PVE : PVP;
+        }
     }
     else if (NewGameButton.IsClicked(mousePos)) {
-        territory.clear();
         currentScreen = SIZE;
     }
     else if (SkinsButton.IsClicked(mousePos)) {
@@ -273,7 +282,6 @@ void Game::UpdateSelectMode() {
         session.undoHistory.clear();
         session.redoHistory.clear();
         session.mode = GameMode::PvP;
-        territory.clear();
         aiThinkTimer = 0.0f;
         currentScreen = PVP;
     }
@@ -304,7 +312,6 @@ void Game::UpdateSelectDifficulty() {
         session.undoHistory.clear();
         session.redoHistory.clear();
         session.mode = GameMode::PvE;
-        territory.clear();
         aiThinkTimer = 0.0f;
         currentScreen = PVE;
     }
@@ -315,7 +322,6 @@ void Game::UpdateSelectDifficulty() {
         session.undoHistory.clear();
         session.redoHistory.clear();
         session.mode = GameMode::PvE;
-        territory.clear();
         aiThinkTimer = 0.0f;
         currentScreen = PVE;
     }
@@ -326,7 +332,6 @@ void Game::UpdateSelectDifficulty() {
         session.undoHistory.clear();
         session.redoHistory.clear();
         session.mode = GameMode::PvE;
-        territory.clear();
         aiThinkTimer = 0.0f;
         currentScreen = PVE;
     }
@@ -521,19 +526,21 @@ void Game::UpdateTerritoty() {
     if (session.currentState.phase != GamePhase::Scoring) return;
 
     int bSize = static_cast<int>(session.currentState.board.size());
-    if (territory.size() != static_cast<size_t>(bSize)) {
+    if (session.currentState.territoryProposal.size() != static_cast<size_t>(bSize)) {
         if (session.currentState.deadStones.size() != session.currentState.board.size()) {
             session.currentState.deadStones = generateDeadStoneProposal(session.currentState);
         }
-        territory = generateTerritoryProposal(session.currentState);
-        session.currentState.territoryProposal = territory;
+        session.currentState.territoryProposal = generateTerritoryProposal(session.currentState);
     }
 }
 
 void Game::DrawTerritoty() {
-    if (session.currentState.phase != GamePhase::Scoring) return;
+    bool isAcceptedFinished = (session.currentState.phase == GamePhase::Finished &&
+                               session.currentState.blackAcceptedScore &&
+                               session.currentState.whiteAcceptedScore);
+    if (session.currentState.phase != GamePhase::Scoring && !isAcceptedFinished) return;
     int bSize = static_cast<int>(session.currentState.board.size());
-    if (territory.size() != static_cast<size_t>(bSize)) return;
+    if (session.currentState.territoryProposal.size() != static_cast<size_t>(bSize)) return;
 
     float cell_size = board.GetCellSize();
     float markerSize = (cell_size > 0) ? (cell_size * 0.35f) : 14.0f;
@@ -541,7 +548,7 @@ void Game::DrawTerritoty() {
 
     for (int col = 0; col < bSize; col++) {
         for (int row = 0; row < bSize; row++) {
-            TerritoryOwner owner = territory[col][row];
+            TerritoryOwner owner = session.currentState.territoryProposal[col][row];
             if (owner != TerritoryOwner::White && owner != TerritoryOwner::Black) continue;
 
             Vector2 pixelPos = board.GetPixelPosition(col, row);
@@ -560,9 +567,33 @@ void Game::DrawTerritoty() {
     }
 }
 
+void Game::UpdateDeadGroup() {
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        Vector2 MousePos = GetMousePosition();
+        int bSize = static_cast<int>(session.currentState.board.size());
+        Point position = board.GetCellIndex(MousePos, bSize);
+        toggleDeadGroups(session.currentState, position);
+    }
+}
+
+void Game::DrawDeadGroup() {
+
+}
+
 // ======================= GAMEPLAY =======================
 void Game::UpdateGameplay() {
     Vector2 mousePos = GetMousePosition();
+
+    if (session.currentState.phase == GamePhase::Scoring) {
+        if (AcceptButton.IsClicked(mousePos)) {
+            reviewScore(session.currentState, session.currentState.sideToMove, true);
+        }
+        else if (ResumeButton.IsClicked(mousePos)) {
+            reviewScore(session.currentState, session.currentState.sideToMove, false);
+            aiThinkTimer = 0.0f;
+        }
+        return;
+    }
 
     if (MainMenuButton.IsClicked(mousePos)) {
         currentScreen = MENU;
@@ -624,7 +655,10 @@ void Game::UpdateGameplay() {
 void Game::DrawGameplay() {
     background.Draw(true);
 
-    if (session.currentState.phase == GamePhase::Scoring) {
+    bool isAcceptedFinished = (session.currentState.phase == GamePhase::Finished &&
+                               session.currentState.blackAcceptedScore &&
+                               session.currentState.whiteAcceptedScore);
+    if (session.currentState.phase == GamePhase::Scoring || isAcceptedFinished) {
         board.Draw(session.currentState.board, session.currentState.deadStones);
     } else {
         board.Draw(session.currentState.board);
@@ -680,8 +714,35 @@ void Game::DrawGameplay() {
 
         std::string passInfo = "Consecutive passes: " + std::to_string(session.currentState.consecutivePasses) + " / 2";
         DrawTextEx(textFont, passInfo.c_str(), {990.0f, 370.0f}, 24.0f, 2.0f, LIGHTGRAY);
+    } else if (session.currentState.phase == GamePhase::Scoring) {
+        SessionSnapshot scoringState = session.currentState;
+        if (scoringState.deadStones.size() != scoringState.board.size()) {
+            scoringState.deadStones = generateDeadStoneProposal(scoringState);
+        }
+        if (scoringState.territoryProposal.empty()) {
+            scoringState.territoryProposal = generateTerritoryProposal(scoringState);
+        }
+
+        Score score{0.0, kKomi};
+        try {
+            score = calculateAreaScore(scoringState, kKomi);
+        } catch (...) {
+        }
+
+        std::ostringstream ssB, ssW;
+        ssB << std::fixed << std::setprecision(1) << score.black;
+        ssW << std::fixed << std::setprecision(1) << score.white;
+
+        DrawTextEx(textFont, "DEAD STONE REVIEW", {1030.0f, 190.0f}, 28.0f, 2.0f, GOLD);
+
+        std::string blackScoreStr = "Black: " + ssB.str() + " pts";
+        std::string whiteScoreStr = "White: " + ssW.str() + " pts (Komi 7.5)";
+        DrawTextEx(textFont, blackScoreStr.c_str(), {990.0f, 245.0f}, 26.0f, 2.0f, RAYWHITE);
+        DrawTextEx(textFont, whiteScoreStr.c_str(), {990.0f, 290.0f}, 26.0f, 2.0f, RAYWHITE);
+        DrawTextEx(textFont, "Click stone groups to toggle dead.", {990.0f, 355.0f}, 22.0f, 1.5f, LIGHTGRAY);
+        DrawTextEx(textFont, "Accept to finish or Resume to play.", {990.0f, 395.0f}, 22.0f, 1.5f, LIGHTGRAY);
     } else {
-        if (session.currentState.phase == GamePhase::Finished) {
+        if (!isAcceptedFinished) {
             Stone resigner = session.currentState.sideToMove;
             std::string winStr = (resigner == Stone::Black) ? "White wins by Resignation!" : "Black wins by Resignation!";
             DrawTextEx(textFont, "RESIGNATION", {1080.0f, 220.0f}, 30.0f, 2.0f, GOLD);
@@ -689,9 +750,6 @@ void Game::DrawGameplay() {
             DrawTextEx(textFont, "GAME OVER", {1100.0f, 400.0f}, 32.0f, 2.0f, RED);
         } else {
             SessionSnapshot scoringState = session.currentState;
-            if (scoringState.phase == GamePhase::Playing) {
-                scoringState.phase = GamePhase::Scoring;
-            }
             if (scoringState.deadStones.size() != scoringState.board.size()) {
                 scoringState.deadStones = generateDeadStoneProposal(scoringState);
             }
@@ -732,12 +790,17 @@ void Game::DrawGameplay() {
         }
     }
 
-    PassButton.Draw();
-    ResignButton.Draw();
-    UndoButton.Draw();
-    RedoButton.Draw();
-    SaveButton.Draw();
-    MainMenuButton.Draw();
+    if (session.currentState.phase == GamePhase::Scoring) {
+        AcceptButton.Draw();
+        ResumeButton.Draw();
+    } else {
+        PassButton.Draw();
+        ResignButton.Draw();
+        UndoButton.Draw(); 
+        RedoButton.Draw();
+        SaveButton.Draw();
+        MainMenuButton.Draw();
+    }
 }
 
 // ======================= MAIN LOOP =======================
@@ -793,6 +856,7 @@ void Game::Update(){
     case PVE:
         UpdateGameplay();
         UpdateTerritoty();
+        UpdateDeadGroup();
         break;
     case EXIT:
         break;

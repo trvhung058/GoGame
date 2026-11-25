@@ -55,10 +55,13 @@ class Game {
         Button SaveButton;
         Button MainMenuButton;
 
+        // Scoring / Dead-group review buttons
+        Button AcceptButton;
+        Button ResumeButton;
+
         int selectedBoardSize = 19;
         AIDifficulty aiDifficulty = AIDifficulty::Easy;
         float aiThinkTimer = 0.0f; 
-        TerritoryMap territory;
 
         enum Scene {
             MENU,
@@ -91,6 +94,9 @@ class Game {
 
         void UpdateTerritoty();
         void DrawTerritoty();
+
+        void UpdateDeadGroup();
+        void DrawDeadGroup();
 
         void HandleAITurn();
 

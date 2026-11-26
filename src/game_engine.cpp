@@ -4,6 +4,7 @@
 #include <vector>
 #include <stdexcept>
 #include <utility>
+#include <iostream>
 
 void createInitialState(SessionSnapshot& state, int boardSize) {
     if (boardSize <= 0) {
@@ -331,6 +332,221 @@ Score calculateAreaScore(const SessionSnapshot& state, double komi) {
     return score;
 }
 
+namespace {
+
+enum class CaptureSearchResult {
+    Captured,
+    NotProven,
+    Incomplete
+};
+
+// Four-liberty groups may need several attacker/defender exchanges before a
+// forced capture becomes visible.
+constexpr int kCaptureSearchMaxPlies = 10;
+constexpr size_t kCaptureSearchMaxNodes = 32768;
+constexpr size_t kCaptureSearchMaxMovesPerNode = 64;
+
+bool collectDefensiveMoves(
+    const SessionSnapshot& state,
+    const std::vector<Point>& liberties,
+    Stone defenderColor,
+    std::vector<Point>& moves) {
+    std::vector<std::vector<bool>> visited(state.board.size());
+    for (size_t col = 0; col < state.board.size(); ++col) {
+        visited[col].assign(state.board[col].size(), false);
+    }
+
+    auto addMove = [&state, &moves, &visited](Point point) {
+        if (point.col >= state.board.size() ||
+            point.row >= state.board[point.col].size() ||
+            state.board[point.col][point.row] != Stone::Empty ||
+            visited[point.col][point.row]) {
+            return true;
+        }
+        if (moves.size() == kCaptureSearchMaxMovesPerNode) {
+            return false;
+        }
+        visited[point.col][point.row] = true;
+        moves.push_back(point);
+        return true;
+    };
+
+    for (const Point& liberty : liberties) {
+        if (!addMove(liberty)) {
+            return false;
+        }
+    }
+
+    const int dx[] = { -1, 1, 0, 0 };
+    const int dy[] = { 0, 0, -1, 1 };
+    for (const Point& liberty : liberties) {
+        for (int direction = 0; direction < 4; ++direction) {
+            size_t neighborCol = liberty.col;
+            size_t neighborRow = liberty.row;
+            if (dx[direction] < 0) {
+                if (neighborCol == 0) {
+                    continue;
+                }
+                --neighborCol;
+            } else if (dx[direction] > 0) {
+                ++neighborCol;
+            }
+            if (dy[direction] < 0) {
+                if (neighborRow == 0) {
+                    continue;
+                }
+                --neighborRow;
+            } else if (dy[direction] > 0) {
+                ++neighborRow;
+            }
+
+            if (!addMove({ neighborCol, neighborRow })) {
+                return false;
+            }
+        }
+    }
+
+    // A defender can sometimes save a group by capturing an attacking chain
+    // that is in atari, even when that capture point is outside this local area.
+    const Stone attackerColor = defenderColor == Stone::Black ? Stone::White : Stone::Black;
+    std::vector<std::vector<bool>> visitedAttackerStones(state.board.size());
+    for (size_t col = 0; col < state.board.size(); ++col) {
+        visitedAttackerStones[col].assign(state.board[col].size(), false);
+    }
+    for (size_t col = 0; col < state.board.size(); ++col) {
+        for (size_t row = 0; row < state.board[col].size(); ++row) {
+            if (state.board[col][row] != attackerColor || visitedAttackerStones[col][row]) {
+                continue;
+            }
+
+            const std::vector<Point> attackerGroup = findGroup(state, { col, row });
+            for (const Point& stone : attackerGroup) {
+                visitedAttackerStones[stone.col][stone.row] = true;
+            }
+
+            const std::vector<Point> attackerLiberties = findLiberties(state, attackerGroup);
+            if (attackerLiberties.size() == 1 && !addMove(attackerLiberties.front())) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+CaptureSearchResult searchCapture(
+    const SessionSnapshot& state,
+    const std::vector<Point>& originalStones,
+    Stone groupColor,
+    Stone attackerColor,
+    Stone sideToMove,
+    int pliesRemaining,
+    size_t& visitedNodes) {
+    if (++visitedNodes > kCaptureSearchMaxNodes) {
+        return CaptureSearchResult::Incomplete;
+    }
+
+    std::vector<Point> currentGroup;
+    for (const Point& stone : originalStones) {
+        if (stone.col < state.board.size() &&
+            stone.row < state.board[stone.col].size() &&
+            state.board[stone.col][stone.row] == groupColor) {
+            currentGroup = findGroup(state, stone);
+            break;
+        }
+    }
+    if (currentGroup.empty()) {
+        return CaptureSearchResult::Captured;
+    }
+    if (pliesRemaining == 0) {
+        return CaptureSearchResult::NotProven;
+    }
+
+    const std::vector<Point> liberties = findLiberties(state, currentGroup);
+    if (sideToMove == attackerColor) {
+        if (liberties.size() > kCaptureSearchMaxMovesPerNode) {
+            return CaptureSearchResult::Incomplete;
+        }
+
+        bool hasIncompleteBranch = false;
+        for (const Point& liberty : liberties) {
+            SessionSnapshot attack = state;
+            attack.phase = GamePhase::Playing;
+            attack.sideToMove = attackerColor;
+            if (!tryPlayStone(attack, liberty)) {
+                continue;
+            }
+
+            const CaptureSearchResult result = searchCapture(
+                attack,
+                originalStones,
+                groupColor,
+                attackerColor,
+                groupColor,
+                pliesRemaining - 1,
+                visitedNodes);
+            if (result == CaptureSearchResult::Captured) {
+                return CaptureSearchResult::Captured;
+            }
+            hasIncompleteBranch = hasIncompleteBranch || result == CaptureSearchResult::Incomplete;
+        }
+        return hasIncompleteBranch
+            ? CaptureSearchResult::Incomplete
+            : CaptureSearchResult::NotProven;
+    }
+
+    std::vector<Point> defensiveMoves;
+    if (!collectDefensiveMoves(state, liberties, groupColor, defensiveMoves)) {
+        return CaptureSearchResult::Incomplete;
+    }
+
+    bool hasLegalDefense = false;
+    bool hasIncompleteBranch = false;
+    for (const Point& move : defensiveMoves) {
+        SessionSnapshot defense = state;
+        defense.phase = GamePhase::Playing;
+        defense.sideToMove = groupColor;
+        if (!tryPlayStone(defense, move)) {
+            continue;
+        }
+        hasLegalDefense = true;
+
+        const CaptureSearchResult result = searchCapture(
+            defense,
+            originalStones,
+            groupColor,
+            attackerColor,
+            attackerColor,
+            pliesRemaining - 1,
+            visitedNodes);
+        if (result == CaptureSearchResult::NotProven) {
+            return CaptureSearchResult::NotProven;
+        }
+        hasIncompleteBranch = hasIncompleteBranch || result == CaptureSearchResult::Incomplete;
+    }
+
+    if (!hasLegalDefense) {
+        SessionSnapshot pass = state;
+        pass.phase = GamePhase::Playing;
+        pass.sideToMove = attackerColor;
+        pass.previousBoard = state.board;
+        return searchCapture(
+            pass,
+            originalStones,
+            groupColor,
+            attackerColor,
+            attackerColor,
+            pliesRemaining - 1,
+            visitedNodes);
+    }
+
+    return hasIncompleteBranch
+        ? CaptureSearchResult::Incomplete
+        : CaptureSearchResult::Captured;
+}
+
+} // namespace
+
 DeadStoneMap generateDeadStoneProposal(const SessionSnapshot& state) {
     DeadStoneMap deadStoneProposal;
     deadStoneProposal.reserve(state.board.size());
@@ -338,11 +554,14 @@ DeadStoneMap generateDeadStoneProposal(const SessionSnapshot& state) {
         deadStoneProposal.emplace_back(column.size(), false);
     }
 
-    struct CandidateGroup {
+    struct GroupInfo {
         std::vector<Point> stones;
         Stone color;
+        std::vector<Point> liberties;
+        size_t secureEyeCount;
+        bool canCapture;
     };
-    std::vector<CandidateGroup> candidateGroups;
+    std::vector<GroupInfo> groups;
     std::vector<std::vector<bool>> visited(state.board.size(), std::vector<bool>(state.board.size(), false));
     for (size_t col = 0; col < state.board.size(); ++col) {
         for (size_t row = 0; row < state.board[col].size(); ++row) {
@@ -355,9 +574,49 @@ DeadStoneMap generateDeadStoneProposal(const SessionSnapshot& state) {
                 visited[point.col][point.row] = true;
             }
 
-            std::vector<Point> liberties = findLiberties(state, group);
             Stone groupColor = state.board[group[0].col][group[0].row];
             Stone opponentColor = (groupColor == Stone::Black) ? Stone::White : Stone::Black;
+            std::vector<Point> liberties = findLiberties(state, group);
+            size_t secureEyeCount = 0;
+            const int dx[] = { -1, 1, 0, 0, -1, -1, 1, 1 };
+            const int dy[] = { 0, 0, -1, 1, -1, 1, -1, 1 };
+            for (const Point& liberty : liberties) {
+                bool isSecureEye = true;
+                for (int direction = 0; direction < 8; ++direction) {
+                    size_t neighborCol = liberty.col;
+                    size_t neighborRow = liberty.row;
+                    if (dx[direction] < 0) {
+                        if (neighborCol == 0) {
+                            continue;
+                        }
+                        --neighborCol;
+                    } else if (dx[direction] > 0) {
+                        ++neighborCol;
+                    }
+                    if (dy[direction] < 0) {
+                        if (neighborRow == 0) {
+                            continue;
+                        }
+                        --neighborRow;
+                    } else if (dy[direction] > 0) {
+                        ++neighborRow;
+                    }
+
+                    if (neighborCol < state.board.size() &&
+                        neighborRow < state.board[neighborCol].size()) {
+                        const Stone neighbor = state.board[neighborCol][neighborRow];
+                        const bool isDiagonal = direction >= 4;
+                        if ((!isDiagonal && neighbor != groupColor) ||
+                            (isDiagonal && neighbor == opponentColor)) {
+                            isSecureEye = false;
+                            break;
+                        }
+                    }
+                }
+                if (isSecureEye) {
+                    ++secureEyeCount;
+                }
+            }
 
             bool canCapture = false;
             if (liberties.size() == 1) {
@@ -430,50 +689,177 @@ DeadStoneMap generateDeadStoneProposal(const SessionSnapshot& state) {
                     }
                 }
             }
-            if (canCapture) {
-                candidateGroups.push_back({std::move(group), groupColor});
-            }
+            groups.push_back({ std::move(group), groupColor, std::move(liberties), secureEyeCount, canCapture });
         }
     }
 
-    while (!candidateGroups.empty()) {
-        SessionSnapshot enclosureState = state;
+    std::vector<size_t> enclosedGroups;
+    enclosedGroups.reserve(groups.size());
+    for (size_t index = 0; index < groups.size(); ++index) {
+        if (!groups[index].canCapture && groups[index].liberties.size() <= 2) {
+            continue;
+        }
+        enclosedGroups.push_back(index);
+    }
+
+    std::vector<size_t> stillEnclosedGroups;
+    stillEnclosedGroups.reserve(enclosedGroups.size());
+    for (size_t index : enclosedGroups) {
+        const GroupInfo& group = groups[index];
+        std::vector<std::vector<bool>> isGroupStone(state.board.size());
+        std::vector<std::vector<bool>> visited(state.board.size());
         for (size_t col = 0; col < state.board.size(); ++col) {
-            enclosureState.deadStones[col].assign(state.board[col].size(), false);
+            isGroupStone[col].assign(state.board[col].size(), false);
+            visited[col].assign(state.board[col].size(), false);
         }
-        for (const CandidateGroup& candidate : candidateGroups) {
-            for (const Point& stone : candidate.stones) {
-                enclosureState.deadStones[stone.col][stone.row] = true;
+        for (const Point& stone : group.stones) {
+            isGroupStone[stone.col][stone.row] = true;
+        }
+
+        std::vector<Point> emptyRegion = group.liberties;
+        bool connectedToOwnColor = false;
+        bool touchesOpponentStone = false;
+        const int dx[] = { -1, 1, 0, 0 };
+        const int dy[] = { 0, 0, -1, 1 };
+        while (!emptyRegion.empty()) {
+            const Point current = emptyRegion.back();
+            emptyRegion.pop_back();
+            if (visited[current.col][current.row]) {
+                continue;
+            }
+            visited[current.col][current.row] = true;
+            for (int direction = 0; direction < 4; ++direction) {
+                size_t neighborCol = current.col;
+                size_t neighborRow = current.row;
+                if (dx[direction] < 0) {
+                    if (neighborCol == 0) {
+                        continue;
+                    }
+                    --neighborCol;
+                } else if (dx[direction] > 0) {
+                    ++neighborCol;
+                }
+                if (dy[direction] < 0) {
+                    if (neighborRow == 0) {
+                        continue;
+                    }
+                    --neighborRow;
+                } else if (dy[direction] > 0) {
+                    ++neighborRow;
+                }
+
+                if (neighborCol >= state.board.size() ||
+                    neighborRow >= state.board[neighborCol].size()) {
+                    continue;
+                }
+
+                const Stone neighbor = state.board[neighborCol][neighborRow];
+                if (neighbor == Stone::Empty) {
+                    if (!visited[neighborCol][neighborRow]) {
+                        emptyRegion.push_back({ neighborCol, neighborRow });
+                    }
+                } else if (neighbor == group.color) {
+                    if (!isGroupStone[neighborCol][neighborRow]) {
+                        connectedToOwnColor = true;
+                    }
+                } else {
+                    touchesOpponentStone = true;
+                }
             }
         }
 
-        TerritoryMap territory = generateTerritoryProposal(enclosureState);
-        std::vector<CandidateGroup> enclosedGroups;
-        enclosedGroups.reserve(candidateGroups.size());
-        for (const CandidateGroup& candidate : candidateGroups) {
-            const Stone opponentColor = candidate.color == Stone::Black ? Stone::White : Stone::Black;
-            const TerritoryOwner opponentOwner = opponentColor == Stone::Black
-                ? TerritoryOwner::Black
-                : TerritoryOwner::White;
-            const bool isEnclosedByOpponent = std::all_of(
-                candidate.stones.begin(),
-                candidate.stones.end(),
-                [&territory, opponentOwner](const Point& stone) {
-                    return territory[stone.col][stone.row] == opponentOwner;
-                });
-            if (isEnclosedByOpponent) {
-                enclosedGroups.push_back(candidate);
-            }
+        if (!connectedToOwnColor && touchesOpponentStone) {
+            stillEnclosedGroups.push_back(index);
+        }
+    }
+    enclosedGroups = std::move(stillEnclosedGroups);
+
+    // Log larger groups as well as the groups that survived the enclosure filter.
+    // This helps distinguish "not considered enclosed" from "search did not prove capture."
+    for (size_t index = 0; index < groups.size(); ++index) {
+        const GroupInfo& group = groups[index];
+        if (group.liberties.size() < 3) {
+            continue;
         }
 
-        if (enclosedGroups.size() == candidateGroups.size()) {
-            break;
+        const bool isEnclosedCandidate = std::find(enclosedGroups.begin(), enclosedGroups.end(), index)
+            != enclosedGroups.end();
+
+        std::cout << "\n[Dead-stone proposal] "
+                  << (group.color == Stone::Black ? "Black" : "White")
+                  << " group stones=";
+        for (const Point& stone : group.stones) {
+            std::cout << "(" << stone.col << "," << stone.row << ") ";
         }
-        candidateGroups = std::move(enclosedGroups);
+
+        std::cout << "liberties=";
+        for (const Point& liberty : group.liberties) {
+            std::cout << "(" << liberty.col << "," << liberty.row << ") ";
+        }
+
+        std::cout << "secureEyes=" << group.secureEyeCount
+                  << " directCapture=" << (group.canCapture ? "yes" : "no")
+                  << " enclosure=" << (isEnclosedCandidate ? "candidate" : "filtered out")
+                  << '\n';
     }
 
-    for (const CandidateGroup& candidate : candidateGroups) {
-        for (const Point& stone : candidate.stones) {
+    const auto printGroupStones = [](const GroupInfo& group) {
+        std::cout << "stones=";
+        for (const Point& stone : group.stones) {
+            std::cout << "(" << stone.col << "," << stone.row << ") ";
+        }
+    };
+
+    for (size_t index : enclosedGroups) {
+        const GroupInfo& group = groups[index];
+        if (group.secureEyeCount >= 2) {
+            if (group.liberties.size() >= 3) {
+                std::cout << "[Dead-stone proposal] ";
+                printGroupStones(group);
+                std::cout << "decision=kept alive (at least two secure eyes)\n";
+            }
+            continue;
+        }
+        bool canCapture = group.canCapture;
+        if (!canCapture) {
+            SessionSnapshot searchState = state;
+            searchState.phase = GamePhase::Playing;
+            size_t visitedNodes = 0;
+            const CaptureSearchResult result = searchCapture(
+                searchState,
+                group.stones,
+                group.color,
+                group.color == Stone::Black ? Stone::White : Stone::Black,
+                group.color == Stone::Black ? Stone::White : Stone::Black,
+                kCaptureSearchMaxPlies,
+                visitedNodes);
+
+            canCapture = result == CaptureSearchResult::Captured;
+            if (group.liberties.size() >= 3) {
+                const char* resultName =
+                    result == CaptureSearchResult::Captured ? "Captured" :
+                    result == CaptureSearchResult::NotProven ? "NotProven" :
+                    "Incomplete";
+                std::cout << "[Capture search] ";
+                printGroupStones(group);
+                std::cout << "result=" << resultName
+                          << " nodes=" << visitedNodes << '\n';
+            }
+        }
+        if (!canCapture) {
+            if (group.liberties.size() >= 3) {
+                std::cout << "[Dead-stone proposal] ";
+                printGroupStones(group);
+                std::cout << "decision=kept alive\n";
+            }
+            continue;
+        }
+        if (group.liberties.size() >= 3) {
+            std::cout << "[Dead-stone proposal] ";
+            printGroupStones(group);
+            std::cout << "decision=marked dead\n";
+        }
+        for (const Point& stone : group.stones) {
             deadStoneProposal[stone.col][stone.row] = true;
         }
     }
